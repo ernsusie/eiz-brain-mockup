@@ -8,6 +8,7 @@ dist
 dist-ssr
 *.local
 .tsbuild-node
+*.tsbuildinfo
 
 # Editor / IDE
 .vscode/*
