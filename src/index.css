@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Prompt', 'IBM Plex Sans Thai', 'Inter', system-ui, sans-serif;
+  background: #fafafa;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  letter-spacing: -0.01em;
+}
+
+@layer components {
+  .card {
+    @apply rounded-3xl bg-white border border-slate-200/70 shadow-soft;
+  }
+  .card-hover {
+    @apply transition-all hover:shadow-card hover:border-brand-200;
+  }
+  .btn {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-brand-500 text-white hover:bg-brand-600 shadow-sm hover:shadow-md hover:-translate-y-0.5;
+  }
+  .btn-ghost {
+    @apply btn bg-white border border-slate-200 text-slate-700 hover:border-brand-300 hover:text-brand-700;
+  }
+  .btn-outline {
+    @apply btn bg-white border-2 border-brand-500 text-brand-600 hover:bg-brand-50;
+  }
+  .btn-soft {
+    @apply btn bg-brand-50 text-brand-700 hover:bg-brand-100;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .input {
+    @apply w-full px-4 py-2.5 rounded-2xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500;
+  }
+  .section-title {
+    @apply text-base font-semibold text-slate-900;
+  }
+  .muted {
+    @apply text-slate-500 text-sm;
+  }
+  .gradient-text {
+    background: linear-gradient(120deg, #ff7a00 0%, #ff5722 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Widget tone backgrounds — color-code cards by data type to make scanning easier */
+  .tone-revenue {
+    @apply bg-gradient-to-br from-brand-50/80 via-white to-amber-50/40 border-brand-100/80;
+  }
+  .tone-customer {
+    @apply bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/30 border-emerald-100/80;
+  }
+  .tone-product {
+    @apply bg-gradient-to-br from-violet-50/70 via-white to-fuchsia-50/30 border-violet-100/80;
+  }
+  .tone-geo {
+    @apply bg-gradient-to-br from-cyan-50/70 via-white to-sky-50/30 border-cyan-100/80;
+  }
+  .tone-retention {
+    @apply bg-gradient-to-br from-pink-50/70 via-white to-rose-50/30 border-pink-100/80;
+  }
+  .tone-risk {
+    @apply bg-gradient-to-br from-amber-50/80 via-white to-orange-50/30 border-amber-100/80;
+  }
+  .tone-neutral {
+    @apply bg-gradient-to-br from-slate-50/80 via-white to-slate-50/30 border-slate-200/70;
+  }
+
+  /* Section header — visually separates "story chapters" */
+  .story-section {
+    @apply space-y-3 mb-6;
+  }
+  .story-header {
+    @apply flex items-baseline gap-3 mb-3;
+  }
+  .story-title {
+    @apply text-lg font-bold text-slate-900;
+  }
+  .story-sub {
+    @apply text-sm text-slate-500;
+  }
+}
+
+/* Scrollbar polish */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+  border: 2px solid #f8fafc;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
