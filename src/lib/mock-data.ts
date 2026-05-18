@@ -462,6 +462,173 @@ export const generateYtdGrowth = (workspaceId: string) => {
   return { overall, byChannel, byProvince, byProduct, bySale }
 }
 
+/* Cohort revenue-per-visit table — rows = cohort month, cols = the
+ * Nth purchase a customer in that cohort makes. Each cell carries
+ * the total revenue, average basket, churn %, and customer count.
+ * Mirrors the "ยอดซื้อซ้ำต่อครั้งจากลูกค้าแต่ละเดือน" matrix in the
+ * attached design. */
+export const generateCohortRepeatRevenue = (workspaceId: string) => {
+  const customers = generateCustomers(workspaceId)
+  const cohortsMap = new Map<string, typeof customers>()
+  for (const c of customers) {
+    const m = c.firstBuy.slice(0, 7)        /* YYYY-MM */
+    if (!cohortsMap.has(m)) cohortsMap.set(m, [])
+    cohortsMap.get(m)!.push(c)
+  }
+  const sortedKeys = [...cohortsMap.keys()].sort()
+  const visits = 7
+  return sortedKeys.map((cohortKey) => {
+    const list = cohortsMap.get(cohortKey)!
+    const total = list.length
+    const cells = Array.from({ length: visits }, (_, i) => {
+      const visit = i + 1
+      /* % of cohort that reached at least N orders. */
+      const reached = list.filter((c) => c.orders >= visit).length
+      const share = (reached / Math.max(1, total)) * 100
+      /* Approximate revenue contribution: first-visit ≈ 80% of customers
+       * make a buy; subsequent visits decay. Average basket scales up
+       * slightly per visit (loyal customers spend more per order). */
+      const value = list
+        .filter((c) => c.orders >= visit)
+        .reduce((s, c) => s + (c.totalSpend / Math.max(1, c.orders)), 0)
+      const avg = reached > 0 ? value / reached : 0
+      /* Churn relative to previous visit. */
+      const prevReached = visit === 1
+        ? total
+        : list.filter((c) => c.orders >= visit - 1).length
+      const churnFromPrev =
+        prevReached > 0 ? ((prevReached - reached) / prevReached) * 100 : 0
+      return {
+        visit,
+        reached,
+        share,
+        value:    Math.round(value),
+        avgBasket:Math.round(avg),
+        churnPct: visit === 1 ? share : Math.round((100 - churnFromPrev) * 100) / 100,
+      }
+    })
+    return { cohort: cohortKey, total, cells }
+  })
+}
+
+/* Customer Tiers — three pairwise grids (Freq × Recency, Freq × Spend,
+ * Spend × Recency) of customer counts. Each grid follows the attached
+ * "Customer Tiers" design exactly. */
+export const generateCustomerTiers = (workspaceId: string) => {
+  const customers = generateCustomers(workspaceId)
+  const today = Date.now()
+  const FREQ = [
+    { key: '11+x', min: 11, max: 99 },
+    { key: '6-10x', min: 6, max: 10 },
+    { key: '3-5x', min: 3, max: 5 },
+    { key: '2x',   min: 2, max: 2 },
+    { key: '1x',   min: 1, max: 1 },
+  ]
+  const RECENCY = [
+    { key: '0-30d',   min: 0,   max: 30 },
+    { key: '31-60d',  min: 31,  max: 60 },
+    { key: '61-90d',  min: 61,  max: 90 },
+    { key: '91-120d', min: 91,  max: 120 },
+    { key: '121-180d',min: 121, max: 180 },
+    { key: '181d+',   min: 181, max: 9999 },
+  ]
+  const SPEND = [
+    { key: '฿10K+',   min: 10000, max: Infinity },
+    { key: '฿5K-10K', min: 5000,  max: 9999.99 },
+    { key: '฿3K-5K',  min: 3000,  max: 4999.99 },
+    { key: '฿1K-3K',  min: 1000,  max: 2999.99 },
+    { key: '฿501-1K', min: 501,   max: 999.99 },
+    { key: '฿0-500',  min: 0,     max: 500.99 },
+  ]
+  const recencyOf = (c: typeof customers[number]) =>
+    Math.floor((today - new Date(c.lastBuy).getTime()) / 86400_000)
+  const inRange = (v: number, b: { min: number; max: number }) =>
+    v >= b.min && v <= b.max
+
+  const mkGrid = <R, C>(rows: R[], cols: C[], match: (c: typeof customers[number], r: R, col: C) => boolean) => {
+    const grid = rows.map((r) => cols.map((c) => 0))
+    customers.forEach((cust) => {
+      rows.forEach((r, ri) => {
+        cols.forEach((c, ci) => {
+          if (match(cust, r, c)) grid[ri][ci] += 1
+        })
+      })
+    })
+    return grid
+  }
+
+  return {
+    freqRecency: {
+      rows: FREQ,
+      cols: RECENCY,
+      data: mkGrid(FREQ, RECENCY, (c, f, r) => c.orders >= f.min && c.orders <= f.max && inRange(recencyOf(c), r)),
+    },
+    freqSpend: {
+      rows: FREQ,
+      cols: SPEND,
+      data: mkGrid(FREQ, SPEND, (c, f, s) => c.orders >= f.min && c.orders <= f.max && inRange(c.totalSpend, s)),
+    },
+    spendRecency: {
+      rows: SPEND,
+      cols: RECENCY,
+      data: mkGrid(SPEND, RECENCY, (c, s, r) => inRange(c.totalSpend, s) && inRange(recencyOf(c), r)),
+    },
+    totalCustomers: customers.length,
+    excluded:       customers.filter((c) => c.orders === 0).length,
+  }
+}
+
+/* Cross-product journey — drives the Sankey on Product Analysis.
+ *  Nodes are top-N products (split into "src" and "dst" sides),
+ *  links carry customer count + revenue weights. Both metrics are
+ *  available so the page can toggle between them. */
+export const generateProductSankey = (workspaceId: string) => {
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 30)
+  const products = generateProducts(workspaceId).slice(0, 6)
+  const nodes = [
+    ...products.map((p) => ({ name: p.name.length > 22 ? p.name.slice(0, 21) + '…' : p.name })),
+    ...products.map((p) => ({ name: `${p.name.length > 22 ? p.name.slice(0, 21) + '…' : p.name} (next)` })),
+  ]
+  const links: { source: number; target: number; value: number; revenue: number }[] = []
+  products.forEach((src, i) => {
+    products.forEach((dst, j) => {
+      if (i === j) return
+      const baseCount = Math.floor((30 + rand() * 250) * (j === 0 ? 1.5 : 1))
+      links.push({
+        source: i,
+        target: products.length + j,
+        value:   baseCount,
+        revenue: Math.round(baseCount * (src.asp + dst.asp) * (0.4 + rand() * 0.4)),
+      })
+    })
+  })
+  return { nodes, links }
+}
+
+/* Cross-channel journey — same idea, channels instead of products. */
+export const generateChannelSankey = (workspaceId: string) => {
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 31)
+  const channels = generateChannelStats(workspaceId).slice(0, 6)
+  const nodes = [
+    ...channels.map((c) => ({ name: c.channel, color: c.color })),
+    ...channels.map((c) => ({ name: `${c.channel} (next)`, color: c.color })),
+  ]
+  const links: { source: number; target: number; value: number; revenue: number }[] = []
+  channels.forEach((src, i) => {
+    channels.forEach((dst, j) => {
+      if (i === j) return
+      const baseCount = Math.floor((10 + rand() * 300) * src.share / 100 * 100)
+      links.push({
+        source: i,
+        target: channels.length + j,
+        value:   baseCount,
+        revenue: Math.round(baseCount * (500 + rand() * 1200)),
+      })
+    })
+  })
+  return { nodes, links }
+}
+
 /* Urgent situations — 4 colour-coded cards driven by customer status.
  *  Used at the top of Sale Performance to direct the operator's
  *  attention to the highest-leverage groups today. */
@@ -1000,6 +1167,14 @@ export const dataset = {
     cached(`rstat-${workspaceId}`, () => generateRetentionStats(workspaceId)),
   urgent: (workspaceId: string) =>
     cached(`urg-${workspaceId}`, () => generateUrgentSituations(workspaceId)),
+  cohortRepeatRevenue: (workspaceId: string) =>
+    cached(`crr-${workspaceId}`, () => generateCohortRepeatRevenue(workspaceId)),
+  customerTiers: (workspaceId: string) =>
+    cached(`tiers-${workspaceId}`, () => generateCustomerTiers(workspaceId)),
+  productSankey: (workspaceId: string) =>
+    cached(`psnk-${workspaceId}`, () => generateProductSankey(workspaceId)),
+  channelSankey: (workspaceId: string) =>
+    cached(`csnk-${workspaceId}`, () => generateChannelSankey(workspaceId)),
   provinces: (workspaceId: string) =>
     cached(`provinces-${workspaceId}`, () => generateProvinceTop(workspaceId)),
   cohorts: (workspaceId: string) =>

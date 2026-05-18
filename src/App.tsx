@@ -8,7 +8,6 @@ import { SalePerformance } from './pages/dashboard/SalePerformance'
 import { Growth } from './pages/dashboard/Growth'
 import { Geography } from './pages/dashboard/Geography'
 import { Products } from './pages/dashboard/Products'
-import { ProductAnalysis } from './pages/dashboard/ProductAnalysis'
 import { SegmentAnalysis } from './pages/dashboard/SegmentAnalysis'
 import { Frequency } from './pages/dashboard/Frequency'
 import { Returns } from './pages/dashboard/Returns'
@@ -22,6 +21,15 @@ import { Replenishment } from './pages/Replenishment'
 import { Upload } from './pages/Upload'
 import { CustomerCenterLayout } from './pages/customer-center/CustomerCenterLayout'
 import { CustomerCenterSegments } from './pages/customer-center/CustomerCenterSegments'
+import { CustomerTiers } from './pages/customer-center/CustomerTiers'
+import { ProductAnalysisLayout } from './pages/product-analysis/ProductAnalysisLayout'
+import { ProductAnalysisMain } from './pages/product-analysis/ProductAnalysisMain'
+import { ProductAnalysisReturn } from './pages/product-analysis/ProductAnalysisReturn'
+import { ChannelAnalysisLayout } from './pages/channel-analysis/ChannelAnalysisLayout'
+import { ChannelAnalysisMain } from './pages/channel-analysis/ChannelAnalysisMain'
+import { ChannelAnalysisReturn } from './pages/channel-analysis/ChannelAnalysisReturn'
+import { RetentionAnalysisLayout } from './pages/retention/RetentionAnalysisLayout'
+import { CohortPage } from './pages/retention/CohortPage'
 import { SettingsLayout } from './pages/settings/SettingsLayout'
 import { Account as SettingsAccount } from './pages/settings/Account'
 import { Team as SettingsTeam } from './pages/settings/Team'
@@ -53,15 +61,30 @@ const App = () => (
         <Route path="product-analysis" element={<Navigate to="/product-analysis" replace />} />
       </Route>
 
-      {/* Product Analysis — top-level menu (promoted from /dashboard sub-tab) */}
-      <Route path="/product-analysis" element={<ProductAnalysis />} />
+      {/* Product Analysis — top-level menu with sub-tabs (Main / Return) */}
+      <Route path="/product-analysis" element={<ProductAnalysisLayout />}>
+        <Route index element={<ProductAnalysisMain />} />
+        <Route path="return" element={<ProductAnalysisReturn />} />
+      </Route>
 
-      {/* Customer Center — wraps segment + customer master tabs */}
+      {/* Channel Analysis — sibling of Product Analysis */}
+      <Route path="/channel-analysis" element={<ChannelAnalysisLayout />}>
+        <Route index element={<ChannelAnalysisMain />} />
+        <Route path="return" element={<ChannelAnalysisReturn />} />
+      </Route>
+
+      {/* Retention Analysis — Cohort + repeat-revenue analytics */}
+      <Route path="/retention-analysis" element={<RetentionAnalysisLayout />}>
+        <Route index element={<CohortPage />} />
+      </Route>
+
+      {/* Customer Center — segments + customer master + RFM tiers */}
       <Route path="/customer-center" element={<CustomerCenterLayout />}>
         <Route index element={<Navigate to="/customer-center/segments" replace />} />
         <Route path="segments"          element={<CustomerCenterSegments />} />
         <Route path="customers"         element={<Customers />} />
         <Route path="customers/:id"     element={<CustomerDetail />} />
+        <Route path="rfm"               element={<CustomerTiers />} />
         <Route path="segments/rfm"      element={<RfmAnalysis />} />
         <Route path="segments/list"     element={<SegmentList kind="marketing" />} />
         <Route path="segments/telesale" element={<SegmentList kind="telesale" />} />

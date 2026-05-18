@@ -174,6 +174,25 @@ export const CustomerCenterSegments = () => {
         ]}
       />
 
+      {/* Priority quick-filter pills */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold text-slate-500">Quick jump:</span>
+        {(['P1', 'P2', 'P3', 'P4'] as Priority[]).map((p) => {
+          const tone = PRIORITY_TONE[p]
+          const list = grouped[p]
+          const totalCount = list.reduce((s, b) => s + b.count, 0)
+          return (
+            <a
+              key={p}
+              href={`#priority-${p}`}
+              className={cn('inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold', tone.chip, 'hover:opacity-90')}
+            >
+              {p} · {formatNumber(totalCount)}
+            </a>
+          )
+        })}
+      </div>
+
       {(['P1', 'P2', 'P3', 'P4'] as Priority[]).map((p) => {
         const list = grouped[p]
         if (list.length === 0) return null
@@ -181,22 +200,25 @@ export const CustomerCenterSegments = () => {
         const totalValue = list.reduce((s, b) => s + b.value, 0)
         const tone = PRIORITY_TONE[p]
         return (
-          <section key={p} className="space-y-2">
-            <header className={cn('rounded-2xl bg-white border-2 px-4 py-3 flex items-center gap-3 flex-wrap', tone.ring)}>
-              <span className={cn('text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full', tone.chip)}>
+          <section key={p} id={`priority-${p}`} className="scroll-mt-4 space-y-2">
+            {/* Priority header — bigger visual break for clarity */}
+            <header className={cn('rounded-2xl bg-white border-l-8 px-5 py-4 flex items-center gap-3 flex-wrap shadow-sm', tone.ring)}
+              style={{ borderLeftColor: p === 'P1' ? '#dc2626' : p === 'P2' ? '#f97316' : p === 'P3' ? '#f59e0b' : '#94a3b8' }}>
+              <span className={cn('text-xs uppercase tracking-wider font-bold px-3 py-1.5 rounded-full', tone.chip)}>
                 {p}
               </span>
               <div className="flex-1 min-w-0">
-                <div className={cn('font-bold', tone.head)}>{PRIORITY_LABEL[p].title}</div>
-                <div className="text-xs text-slate-500">{PRIORITY_LABEL[p].sub}</div>
+                <div className={cn('font-bold text-base', tone.head)}>{PRIORITY_LABEL[p].title}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{PRIORITY_LABEL[p].sub}</div>
               </div>
               <div className="text-right">
-                <div className="text-lg font-bold text-slate-900 tabular-nums">{formatNumber(totalCount)}</div>
-                <div className="text-[11px] text-slate-500">{formatTHB(totalValue, { compact: true })}</div>
+                <div className="text-2xl font-bold text-slate-900 tabular-nums leading-none">{formatNumber(totalCount)}</div>
+                <div className="text-[11px] text-slate-500 mt-1">รวม {formatTHB(totalValue, { compact: true })}</div>
               </div>
             </header>
 
-            <div className="space-y-2">
+            {/* Compact segment cards — 2-col grid on md+ to reduce row count */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {list.map(({ seg, count, value, enrolled }) => {
                 const pct = (count / total) * 100
                 const isExpanded = expanded === seg.key
@@ -204,30 +226,26 @@ export const CustomerCenterSegments = () => {
                 return (
                   <div
                     key={seg.key}
-                    className={cn('card border overflow-hidden transition-all', isExpanded && 'shadow-md')}
-                    style={{ borderLeftWidth: 5, borderLeftColor: BAND_COLORS[seg.band] }}
+                    className={cn('card border overflow-hidden transition-all', isExpanded && 'shadow-md md:col-span-2')}
+                    style={{ borderLeftWidth: 4, borderLeftColor: BAND_COLORS[seg.band] }}
                   >
                     <button
                       onClick={() => setExpanded(isExpanded ? null : seg.key)}
-                      className="w-full text-left p-4 flex items-start gap-3 hover:bg-slate-50/60"
+                      className="w-full text-left p-3 flex items-center gap-3 hover:bg-slate-50/60"
                     >
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: BAND_COLORS[seg.band] }}
-                      >
-                        <Users className="w-5 h-5 text-white" />
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: BAND_COLORS[seg.band] }}>
+                        <Users className="w-4 h-4 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-slate-900">{seg.label}</h3>
-                        <p className="text-xs text-slate-600 mt-0.5">
-                          Telesale: {seg.teleSegment} · {enrollmentPct.toFixed(0)}% enrolled
-                        </p>
+                        <h3 className="font-semibold text-slate-900 text-sm truncate">{seg.label}</h3>
+                        <p className="text-[11px] text-slate-500 truncate">{seg.teleSegment}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-xl font-bold text-slate-900 tabular-nums">{formatNumber(count)}</div>
-                        <div className="text-[11px] text-slate-500">{pct.toFixed(1)}% · {formatTHB(value, { compact: true })}</div>
+                        <div className="text-base font-bold text-slate-900 tabular-nums leading-none">{formatNumber(count)}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{pct.toFixed(1)}%</div>
                       </div>
-                      <ArrowRight className={cn('w-5 h-5 text-slate-400 self-center transition-transform shrink-0', isExpanded && 'rotate-90')} />
+                      <ArrowRight className={cn('w-4 h-4 text-slate-400 self-center transition-transform shrink-0', isExpanded && 'rotate-90')} />
                     </button>
 
                     {isExpanded && (
@@ -247,9 +265,7 @@ export const CustomerCenterSegments = () => {
                             <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Enrollment</span>
                           </div>
                           <div className="font-semibold text-slate-900">{enrollmentPct.toFixed(0)}% enrolled</div>
-                          <div className="text-xs text-slate-600 mt-1">
-                            {enrolled} / {count} ราย ได้รับการ enroll
-                          </div>
+                          <div className="text-xs text-slate-600 mt-1">{enrolled} / {count} ราย</div>
                         </div>
 
                         <div className="card bg-white p-3 text-sm">
@@ -258,9 +274,7 @@ export const CustomerCenterSegments = () => {
                             <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">มูลค่ารวม</span>
                           </div>
                           <div className="font-semibold text-slate-900">{formatTHB(value, { compact: true })}</div>
-                          <div className="text-xs text-slate-600 mt-1">
-                            เฉลี่ย {formatTHB(value / Math.max(1, count), { compact: true })} / ราย
-                          </div>
+                          <div className="text-xs text-slate-600 mt-1">เฉลี่ย {formatTHB(value / Math.max(1, count), { compact: true })} / ราย</div>
                         </div>
 
                         <div className="card bg-white p-3 text-sm md:col-span-2">

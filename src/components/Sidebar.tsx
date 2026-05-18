@@ -8,6 +8,8 @@ import {
   ChevronRight,
   Sparkles,
   Package,
+  Globe,
+  Repeat,
   Settings,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -34,7 +36,19 @@ const NAV = [
     to: '/product-analysis',
     label: 'Product Analysis',
     icon: Package,
-    hint: 'Co-purchase · top 20 · returns',
+    hint: 'Cross-product · co-purchase · returns',
+  },
+  {
+    to: '/channel-analysis',
+    label: 'Channel Analysis',
+    icon: Globe,
+    hint: 'Cross-channel journey · performance',
+  },
+  {
+    to: '/retention-analysis',
+    label: 'Retention Analysis',
+    icon: Repeat,
+    hint: 'Cohort · repeat purchase',
   },
   {
     to: '/enrollment',

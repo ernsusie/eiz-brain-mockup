@@ -1,10 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Users, UserCircle } from 'lucide-react'
+import { BarChart3, Users, UserCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const TABS = [
-  { to: '/customer-center/segments',  label: 'Segment Customer', icon: Users },
-  { to: '/customer-center/customers', label: 'Customer Master',  icon: UserCircle },
+  { to: '/customer-center/segments',  label: 'Segment Customer', icon: Users,      end: false },
+  { to: '/customer-center/customers', label: 'Customer Master',  icon: UserCircle, end: false },
+  { to: '/customer-center/rfm',       label: 'RFM',              icon: BarChart3,  end: false },
 ]
 
 export const CustomerCenterLayout = () => {
