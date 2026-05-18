@@ -15,7 +15,10 @@ export const Workspaces = () => {
 
   const enter = (id: string) => {
     workspaces.setCurrent(id)
-    navigate('/brief', { replace: true })
+    /* Dashboard is the default landing for every account (per
+     *  2026-05-18 feedback). The Brief page sits at position #2 in
+     *  the sidebar but is no longer the post-login destination. */
+    navigate('/dashboard', { replace: true })
   }
 
   const handleLogout = () => {
