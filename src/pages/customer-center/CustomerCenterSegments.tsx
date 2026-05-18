@@ -75,11 +75,11 @@ const SEGS: SegSpec[] = [
   { key: 'never',           label: 'ทดลอง/ดอง/ยังไม่มีการสั่งซื้อ',    rRange: [1,1], fRange: [1,1], mRange: [1,1], band: 'inactive', priority: 'P4', teleSegment: 'Archive',                 sellWhat: '—',                              adsWhat: 'Exclude',                  enrollmentNote: 'Archive' },
 ]
 
-const PRIORITY_TONE: Record<Priority, { chip: string; head: string; ring: string }> = {
-  P1: { chip: 'bg-red-600 text-white',    head: 'text-red-700',    ring: 'border-red-200' },
-  P2: { chip: 'bg-orange-500 text-white', head: 'text-orange-700', ring: 'border-orange-200' },
-  P3: { chip: 'bg-amber-500 text-white',  head: 'text-amber-700',  ring: 'border-amber-200' },
-  P4: { chip: 'bg-slate-400 text-white',  head: 'text-slate-600',  ring: 'border-slate-200' },
+const PRIORITY_TONE: Record<Priority, { chip: string; head: string; ring: string; bg: string; section: string }> = {
+  P1: { chip: 'bg-red-600 text-white',    head: 'text-red-700',    ring: 'border-red-200',    bg: 'bg-red-50',     section: 'bg-rose-50/50' },
+  P2: { chip: 'bg-orange-500 text-white', head: 'text-orange-700', ring: 'border-orange-200', bg: 'bg-orange-50',  section: 'bg-orange-50/40' },
+  P3: { chip: 'bg-amber-500 text-white',  head: 'text-amber-700',  ring: 'border-amber-200',  bg: 'bg-amber-50',   section: 'bg-amber-50/40' },
+  P4: { chip: 'bg-slate-400 text-white',  head: 'text-slate-600',  ring: 'border-slate-200',  bg: 'bg-slate-50',   section: 'bg-slate-50/60' },
 }
 
 const PRIORITY_LABEL: Record<Priority, { title: string; sub: string }> = {
@@ -200,7 +200,7 @@ export const CustomerCenterSegments = () => {
         const totalValue = list.reduce((s, b) => s + b.value, 0)
         const tone = PRIORITY_TONE[p]
         return (
-          <section key={p} id={`priority-${p}`} className="scroll-mt-4 space-y-2">
+          <section key={p} id={`priority-${p}`} className={cn('scroll-mt-4 space-y-2 rounded-3xl p-3', tone.section)}>
             {/* Priority header — bigger visual break for clarity */}
             <header className={cn('rounded-2xl bg-white border-l-8 px-5 py-4 flex items-center gap-3 flex-wrap shadow-sm', tone.ring)}
               style={{ borderLeftColor: p === 'P1' ? '#dc2626' : p === 'P2' ? '#f97316' : p === 'P3' ? '#f59e0b' : '#94a3b8' }}>

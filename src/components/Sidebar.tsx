@@ -7,9 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Package,
-  Globe,
   Repeat,
+  FileText,
   Settings,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -33,22 +32,10 @@ const NAV = [
     hint: 'Segment + ลูกค้าทั้งหมด',
   },
   {
-    to: '/product-analysis',
-    label: 'Product Analysis',
-    icon: Package,
-    hint: 'Cross-product · co-purchase · returns',
-  },
-  {
-    to: '/channel-analysis',
-    label: 'Channel Analysis',
-    icon: Globe,
-    hint: 'Cross-channel journey · performance',
-  },
-  {
     to: '/retention-analysis',
     label: 'Retention Analysis',
     icon: Repeat,
-    hint: 'Cohort · repeat purchase',
+    hint: 'Cohort · Product · Channel journeys',
   },
   {
     to: '/enrollment',
@@ -63,6 +50,12 @@ const NAV = [
     icon: Trophy,
     hint: 'Performance + KPI',
     minRole: 'admin' as const,
+  },
+  {
+    to: '/reports',
+    label: 'Reports',
+    icon: FileText,
+    hint: 'สร้างรายงานเองด้วย drag & drop',
   },
   {
     to: '/settings',

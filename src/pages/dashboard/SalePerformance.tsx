@@ -111,8 +111,17 @@ export const SalePerformance = ({ compact }: Props = {}) => {
   }
 
   const urgentClick = (key: string) => {
-    /* Map urgent key → customer center segment route. */
-    navigate(`/customer-center/segments?urgent=${key}`)
+    /* Map urgent-card key → the matching RFM segment in Customer
+     * Center so the operator lands on the right priority section
+     * with the right card pre-expanded. */
+    const segMap: Record<string, string> = {
+      vip_leaving:  'big_leaving',
+      at_risk:      'big_lost',
+      potential:    'potential_loyal',
+      new_followup: 'easy_above_avg',
+    }
+    const seg = segMap[key] ?? key
+    navigate(`/customer-center/segments?seg=${seg}`)
   }
 
   return (

@@ -30,6 +30,8 @@ import { ChannelAnalysisMain } from './pages/channel-analysis/ChannelAnalysisMai
 import { ChannelAnalysisReturn } from './pages/channel-analysis/ChannelAnalysisReturn'
 import { RetentionAnalysisLayout } from './pages/retention/RetentionAnalysisLayout'
 import { CohortPage } from './pages/retention/CohortPage'
+import { ReportsList } from './pages/reports/ReportsList'
+import { ReportBuilder } from './pages/reports/ReportBuilder'
 import { SettingsLayout } from './pages/settings/SettingsLayout'
 import { Account as SettingsAccount } from './pages/settings/Account'
 import { Team as SettingsTeam } from './pages/settings/Team'
@@ -61,22 +63,26 @@ const App = () => (
         <Route path="product-analysis" element={<Navigate to="/product-analysis" replace />} />
       </Route>
 
-      {/* Product Analysis — top-level menu with sub-tabs (Main / Return) */}
-      <Route path="/product-analysis" element={<ProductAnalysisLayout />}>
-        <Route index element={<ProductAnalysisMain />} />
-        <Route path="return" element={<ProductAnalysisReturn />} />
-      </Route>
-
-      {/* Channel Analysis — sibling of Product Analysis */}
-      <Route path="/channel-analysis" element={<ChannelAnalysisLayout />}>
-        <Route index element={<ChannelAnalysisMain />} />
-        <Route path="return" element={<ChannelAnalysisReturn />} />
-      </Route>
-
-      {/* Retention Analysis — Cohort + repeat-revenue analytics */}
+      {/* Retention Analysis — Cohort + Product Analysis + Channel Analysis
+       *  all live under one menu. Product / Channel keep their own
+       *  Main + Return sub-tabs nested two levels deep. */}
       <Route path="/retention-analysis" element={<RetentionAnalysisLayout />}>
         <Route index element={<CohortPage />} />
+        <Route path="product-analysis" element={<ProductAnalysisLayout />}>
+          <Route index element={<ProductAnalysisMain />} />
+          <Route path="return" element={<ProductAnalysisReturn />} />
+        </Route>
+        <Route path="channel-analysis" element={<ChannelAnalysisLayout />}>
+          <Route index element={<ChannelAnalysisMain />} />
+          <Route path="return" element={<ChannelAnalysisReturn />} />
+        </Route>
       </Route>
+
+      {/* Legacy redirects — old top-level URLs still work */}
+      <Route path="/product-analysis"        element={<Navigate to="/retention-analysis/product-analysis" replace />} />
+      <Route path="/product-analysis/return" element={<Navigate to="/retention-analysis/product-analysis/return" replace />} />
+      <Route path="/channel-analysis"        element={<Navigate to="/retention-analysis/channel-analysis" replace />} />
+      <Route path="/channel-analysis/return" element={<Navigate to="/retention-analysis/channel-analysis/return" replace />} />
 
       {/* Customer Center — segments + customer master + RFM tiers */}
       <Route path="/customer-center" element={<CustomerCenterLayout />}>
@@ -101,6 +107,11 @@ const App = () => (
 
       <Route path="/enrollment" element={<Enrollment />} />
       <Route path="/sales" element={<SalesTeam />} />
+
+      {/* Reports — drag-and-drop report builder */}
+      <Route path="/reports"      element={<ReportsList />} />
+      <Route path="/reports/new"  element={<ReportBuilder />} />
+      <Route path="/reports/:id"  element={<ReportBuilder />} />
 
       {/* Old top-level Upload + Replenishment now live under Settings.
        *  Keep redirects so existing links still work. */}

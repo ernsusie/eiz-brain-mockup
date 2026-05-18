@@ -195,52 +195,52 @@ const ReadGuide = ({
 
   /* Sub-text by view */
   const overview = view === 'freq_recency' ? [
-    <>{formatNumber(grand)} customers — {formatNumber(repeatSum)} repeat ({repeatPct}%) vs {formatNumber(oneTimers)} one-time ({oneTimersPct}%)</>,
-    <>Bought in last 30 days: {formatNumber(colTotals[0])} · silent &gt;120 days: {formatNumber(colTotals[colTotals.length - 1] + (colTotals[colTotals.length - 2] ?? 0))}</>,
+    <>{formatNumber(grand)} ราย — ลูกค้าซื้อซ้ำ {formatNumber(repeatSum)} ราย ({repeatPct}%) เทียบกับซื้อครั้งเดียว {formatNumber(oneTimers)} ราย ({oneTimersPct}%)</>,
+    <>ซื้อใน 30 วันล่าสุด {formatNumber(colTotals[0])} ราย · เงียบนานกว่า 120 วัน {formatNumber(colTotals[colTotals.length - 1] + (colTotals[colTotals.length - 2] ?? 0))} ราย</>,
   ] : view === 'freq_spend' ? [
-    <>{formatNumber(grand)} customers — split by frequency and total spend</>,
-    <>฿5,000+ spenders: {formatNumber((colTotals[0] ?? 0) + (colTotals[1] ?? 0))} ({(((colTotals[0] ?? 0) + (colTotals[1] ?? 0)) / Math.max(1, grand) * 100).toFixed(0)}%) · ≤฿1,000: {formatNumber(grand - ((colTotals[0] ?? 0) + (colTotals[1] ?? 0) + (colTotals[2] ?? 0) + (colTotals[3] ?? 0)))} </>,
+    <>{formatNumber(grand)} ราย — แบ่งตามความถี่และยอดซื้อรวม</>,
+    <>ยอดซื้อ ฿5,000+ {formatNumber((colTotals[0] ?? 0) + (colTotals[1] ?? 0))} ราย ({(((colTotals[0] ?? 0) + (colTotals[1] ?? 0)) / Math.max(1, grand) * 100).toFixed(0)}%) · ≤฿1,000 {formatNumber(grand - ((colTotals[0] ?? 0) + (colTotals[1] ?? 0) + (colTotals[2] ?? 0) + (colTotals[3] ?? 0)))} ราย</>,
   ] : [
-    <>{formatNumber(grand)} customers — split by total spend and recency</>,
-    <>VIPs (฿5K+): {formatNumber((rowTotals[0] ?? 0) + (rowTotals[1] ?? 0))} · active in 30d: {formatNumber(colTotals[0])} · silent &gt;120d: {formatNumber((colTotals[colTotals.length - 1] ?? 0) + (colTotals[colTotals.length - 2] ?? 0))}</>,
+    <>{formatNumber(grand)} ราย — แบ่งตามยอดซื้อและความล่าสุด</>,
+    <>VIP (฿5K+) {formatNumber((rowTotals[0] ?? 0) + (rowTotals[1] ?? 0))} ราย · active ใน 30d {formatNumber(colTotals[0])} ราย · เงียบ &gt;120d {formatNumber((colTotals[colTotals.length - 1] ?? 0) + (colTotals[colTotals.length - 2] ?? 0))} ราย</>,
   ]
 
   const interesting = view === 'freq_recency' ? [
-    { dot: 'text-blue-600',    text: <>Largest cell: <strong>{largestLabel}</strong> — {formatNumber(largestVal)} customers ({largestPct}%)</>, hint: '% = customers in this cell ÷ total customers in the grid' },
-    { dot: 'text-emerald-600', text: <><strong>{formatNumber(grid.data[0][0])}</strong> champions ({((grid.data[0][0] / Math.max(1, grand)) * 100).toFixed(0)}%) — 3+ orders, last buy within 30 days</>, hint: 'Top-left corner of the grid' },
-    { dot: 'text-rose-600',    text: <><strong>{formatNumber(grid.data[2]?.[5] ?? 0)} at-risk loyalists</strong> ({(((grid.data[2]?.[5] ?? 0) / Math.max(1, grand)) * 100).toFixed(0)}%) — were frequent buyers but silent &gt;120 days</>, hint: 'Top-right corner — most urgent group' },
-    { dot: 'text-amber-600',   text: <><strong>Heavy new-customer leakage</strong> — {formatNumber(grid.data[4]?.[5] ?? 0)} bought once then silent &gt;90 days</>, hint: 'Bottom-right corner — many likely lost' },
+    { dot: 'text-blue-600',    text: <>เซลล์ใหญ่ที่สุด: <strong>{largestLabel}</strong> — {formatNumber(largestVal)} ราย ({largestPct}%)</>, hint: '% = สัดส่วนลูกค้าในเซลล์นี้เทียบกับทั้งหมด' },
+    { dot: 'text-emerald-600', text: <><strong>{formatNumber(grid.data[0][0])} champion</strong> ({((grid.data[0][0] / Math.max(1, grand)) * 100).toFixed(0)}%) — ซื้อ ≥ 3 ครั้ง และล่าสุดภายใน 30 วัน</>, hint: 'มุมบนซ้ายของ grid' },
+    { dot: 'text-rose-600',    text: <><strong>{formatNumber(grid.data[2]?.[5] ?? 0)} loyal ที่กำลังหลุด</strong> ({(((grid.data[2]?.[5] ?? 0) / Math.max(1, grand)) * 100).toFixed(0)}%) — เคยซื้อบ่อยแต่เงียบเกิน 120 วัน</>, hint: 'มุมบนขวา — กลุ่มเร่งด่วนที่สุด' },
+    { dot: 'text-amber-600',   text: <><strong>ลูกค้าใหม่หลุดสูง</strong> — {formatNumber(grid.data[4]?.[5] ?? 0)} ราย ซื้อครั้งเดียวแล้วเงียบเกิน 90 วัน</>, hint: 'มุมล่างขวา — น่าจะหายไปแล้ว' },
   ] : view === 'freq_spend' ? [
-    { dot: 'text-blue-600',    text: <>Largest cell: <strong>{largestLabel}</strong> — {formatNumber(largestVal)} customers ({largestPct}%)</>, hint: '% = customers in this cell ÷ total' },
-    { dot: 'text-emerald-600', text: <><strong>high-LTV VIPs</strong> — {formatNumber(grid.data[0][grid.cols.length - 1])} buyers with 6+ orders and ฿5,000+ total</>, hint: 'Top-right corner — your revenue backbone' },
-    { dot: 'text-amber-600',   text: <><strong>big-bill single-purchase customers</strong> — {formatNumber(grid.data[grid.rows.length - 1][grid.cols.length - 1])} bill ≥฿3,000, VIP potential</>, hint: 'Bottom-right corner — high-value win-back targets' },
-    { dot: 'text-blue-600',    text: <><strong>loyal-but-cheap</strong> — {formatNumber(grid.data[0][0])} have 6+ orders but ≤฿1,000 total (upsell opportunity)</>, hint: 'Top-left corner — try premium product recommendations' },
+    { dot: 'text-blue-600',    text: <>เซลล์ใหญ่ที่สุด: <strong>{largestLabel}</strong> — {formatNumber(largestVal)} ราย ({largestPct}%)</>, hint: '% = สัดส่วนลูกค้าในเซลล์นี้' },
+    { dot: 'text-emerald-600', text: <><strong>VIP มูลค่าสูง</strong> — {formatNumber(grid.data[0][grid.cols.length - 1])} ราย ซื้อ ≥ 6 ครั้ง และยอด ≥ ฿5,000</>, hint: 'มุมบนขวา — เสาหลักของรายได้' },
+    { dot: 'text-amber-600',   text: <><strong>ซื้อครั้งเดียวบิลใหญ่</strong> — {formatNumber(grid.data[grid.rows.length - 1][grid.cols.length - 1])} ราย บิล ≥ ฿3,000 (VIP potential)</>, hint: 'มุมล่างขวา — เป้า win-back มูลค่าสูง' },
+    { dot: 'text-blue-600',    text: <><strong>ภักดีแต่บิลเล็ก</strong> — {formatNumber(grid.data[0][0])} ราย ซื้อ ≥ 6 ครั้ง แต่ยอด ≤ ฿1,000 (upsell ได้)</>, hint: 'มุมบนซ้าย — แนะนำสินค้าระดับสูงขึ้น' },
   ] : [
-    { dot: 'text-blue-600',    text: <>Largest cell: <strong>{largestLabel}</strong> — {formatNumber(largestVal)} customers ({largestPct}%)</>, hint: '% = customers in this cell ÷ total' },
-    { dot: 'text-rose-600',    text: <><strong>silent VIPs</strong> — {formatNumber(grid.data[0][grid.cols.length - 1])} ({((grid.data[0][grid.cols.length - 1] / Math.max(1, grand)) * 100).toFixed(0)}%) high spend but silent &gt;120 days</>, hint: 'Top-right corner — most urgent, highest win-back ROI' },
-    { dot: 'text-emerald-600', text: <><strong>active VIPs</strong> — {formatNumber(grid.data[0][0])} ({((grid.data[0][0] / Math.max(1, grand)) * 100).toFixed(0)}%) high spend and bought within 30 days</>, hint: 'Top-left — keep them happy' },
-    { dot: 'text-amber-600',   text: <><strong>mid-tier</strong> ({grid.rows[3]?.key}) slipping away — silent 91-180 days</>, hint: 'Middle 2 rows × second-to-last cols — will become silent VIPs if ignored' },
+    { dot: 'text-blue-600',    text: <>เซลล์ใหญ่ที่สุด: <strong>{largestLabel}</strong> — {formatNumber(largestVal)} ราย ({largestPct}%)</>, hint: '% = สัดส่วนลูกค้าในเซลล์นี้' },
+    { dot: 'text-rose-600',    text: <><strong>VIP เงียบ</strong> — {formatNumber(grid.data[0][grid.cols.length - 1])} ราย ({((grid.data[0][grid.cols.length - 1] / Math.max(1, grand)) * 100).toFixed(0)}%) ยอดสูงแต่เงียบเกิน 120 วัน</>, hint: 'มุมบนขวา — เร่งด่วน ROI สูงสุด' },
+    { dot: 'text-emerald-600', text: <><strong>VIP active</strong> — {formatNumber(grid.data[0][0])} ราย ({((grid.data[0][0] / Math.max(1, grand)) * 100).toFixed(0)}%) ยอดสูงและซื้อใน 30 วัน</>, hint: 'มุมบนซ้าย — รักษาให้ดี' },
+    { dot: 'text-amber-600',   text: <><strong>ระดับกลาง</strong> ({grid.rows[3]?.key}) กำลังหลุด — เงียบ 91-180 วัน</>, hint: 'แถวกลาง × คอลัมน์ก่อนสุดท้าย — จะกลายเป็น VIP เงียบ ถ้าไม่ทำอะไร' },
   ]
 
   const actions = view === 'spend_recency'
-    ? [<>Reach the silent VIPs today — highest win-back ROI <Phone className="w-3 h-3 inline" /></>,
-       <>Send loyalty perks to active VIPs to deepen the relationship</>]
+    ? [<>โทรหา VIP เงียบวันนี้ — ROI สูงสุดของการ win-back <Phone className="w-3 h-3 inline" /></>,
+       <>ส่ง loyalty perks ให้ VIP active เพื่อกระชับความสัมพันธ์</>]
     : view === 'freq_spend'
-      ? [<>Upsell loyal-but-cheap with premium product recommendations</>,
-         <>Auto-win-back big-bill single-purchase customers within 60 days</>]
-      : [<>Onboard one-time buyers within 14 days — coupon for order #2</>,
-         <>Re-engage at-risk loyalists with personal telesale calls</>]
+      ? [<>Upsell ลูกค้าภักดีบิลเล็ก ด้วยสินค้าระดับ premium</>,
+         <>Auto win-back ลูกค้าบิลใหญ่ที่ซื้อครั้งเดียว ภายใน 60 วัน</>]
+      : [<>Onboard ลูกค้าซื้อครั้งเดียว ภายใน 14 วัน — coupon สำหรับ order #2</>,
+         <>Re-engage loyal ที่เริ่มหลุด ด้วย personal telesale call</>]
 
   return (
     <section className="card p-5">
       <header className="mb-3">
-        <h3 className="font-bold text-slate-900">How to read this &amp; what to do</h3>
-        <p className="text-xs text-slate-500">Computed directly from the cells above — no guesses</p>
+        <h3 className="font-bold text-slate-900">วิธีอ่านและสิ่งที่ควรทำ</h3>
+        <p className="text-xs text-slate-500">คำนวณจากเซลล์ด้านบนโดยตรง · ไม่ใช่การคาดเดา</p>
       </header>
 
       <div className="space-y-3">
         <div>
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500 mb-1">👁 Overview</div>
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500 mb-1">👁 ภาพรวม</div>
           <ul className="space-y-1 text-sm">
             {overview.map((line, i) => (
               <li key={i} className="flex gap-2">
@@ -251,7 +251,7 @@ const ReadGuide = ({
         </div>
 
         <div>
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500 mb-1">✨ What&apos;s interesting</div>
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500 mb-1">✨ สิ่งที่น่าสังเกต</div>
           <ul className="space-y-1.5 text-sm">
             {interesting.map((item, i) => (
               <li key={i} className="flex gap-2">
@@ -266,7 +266,7 @@ const ReadGuide = ({
         </div>
 
         <div>
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500 mb-1">✅ What to do</div>
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500 mb-1">✅ ควรทำอะไรต่อ</div>
           <ul className="space-y-1 text-sm">
             {actions.map((a, i) => (
               <li key={i} className="flex gap-2">
@@ -279,7 +279,7 @@ const ReadGuide = ({
 
       <div className="flex justify-end pt-3 border-t border-slate-100 mt-3">
         <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700">
-          <DollarSign className="w-3 h-3" /> <Phone className="w-3 h-3" /> Open list →
+          <DollarSign className="w-3 h-3" /> <Phone className="w-3 h-3" /> เปิดรายชื่อ →
         </button>
       </div>
     </section>
