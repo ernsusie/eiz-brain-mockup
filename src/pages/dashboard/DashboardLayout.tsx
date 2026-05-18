@@ -116,7 +116,6 @@ export const DashboardLayout = () => {
           { to: '/dashboard/frequency', label: '🔁 ความถี่ & ซื้อซ้ำ' },
           { to: '/dashboard/geography', label: '🗺️ Geography' },
           { to: '/dashboard/products', label: '📦 Products' },
-          { to: '/dashboard/product-analysis', label: '🔬 Product Analysis' },
           { to: '/dashboard/returns', label: '↩️ Returns' },
         ]}
       />

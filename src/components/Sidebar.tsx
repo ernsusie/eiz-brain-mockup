@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Sparkles,
   Package,
-  Upload,
   Settings,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -32,18 +31,17 @@ const NAV = [
     hint: 'Segment + ลูกค้าทั้งหมด',
   },
   {
+    to: '/product-analysis',
+    label: 'Product Analysis',
+    icon: Package,
+    hint: 'Co-purchase · top 20 · returns',
+  },
+  {
     to: '/enrollment',
     label: 'Enrollment',
     icon: ClipboardList,
     hint: 'จ่ายลูกค้าให้ Sale',
     minRole: 'view' as const,
-  },
-  {
-    to: '/replenishment',
-    label: 'Replenishment',
-    icon: Package,
-    hint: 'รอบเติมสินค้า · AI',
-    minRole: 'edit' as const,
   },
   {
     to: '/sales',
@@ -53,17 +51,10 @@ const NAV = [
     minRole: 'admin' as const,
   },
   {
-    to: '/upload',
-    label: 'นำเข้าข้อมูล',
-    icon: Upload,
-    hint: 'CSV / Excel ยอดขาย',
-    minRole: 'edit' as const,
-  },
-  {
     to: '/settings',
     label: 'ตั้งค่า',
     icon: Settings,
-    hint: 'บัญชี · ทีม · workspace',
+    hint: 'บัญชี · ทีม · upload · replenishment',
   },
 ]
 
@@ -112,7 +103,6 @@ export const Sidebar = () => {
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {NAV.map((item) => {
           if (item.minRole === 'admin' && !can(user?.role, 'admin')) return null
-          if (item.minRole === 'edit' && !can(user?.role, 'edit')) return null
           const Icon = item.icon
           const active = loc.pathname.startsWith(item.to)
           return (

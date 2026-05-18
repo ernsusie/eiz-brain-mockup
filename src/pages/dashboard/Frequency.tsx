@@ -1,35 +1,32 @@
 import {
   Bar,
   BarChart,
-  Cell,
   CartesianGrid,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Repeat, Sparkles } from 'lucide-react'
+import { ArrowRight, Repeat } from 'lucide-react'
 import { workspaces } from '@/lib/workspaces'
 import { dataset } from '@/lib/mock-data'
 import { cn, formatNumber, formatTHB } from '@/lib/utils'
+import { PageInsight } from '@/components/PageInsight'
 
 /** Discrete colour ramp for the 10 frequency buckets (1, 2, ..., 10+). */
 const FREQ_COLORS = ['#6366f1', '#7c3aed', '#a855f7', '#c026d3', '#db2777', '#ef4444', '#f97316', '#facc15', '#84cc16', '#10b981']
 
 /**
- * Dashboard sub-page · ความถี่ & ซื้อซ้ำ (rebuilt per attached design)
+ * Dashboard sub-page · ความถี่ & ซื้อซ้ำ
  *
- * Layout (top → bottom):
- *  1. Headline banner — repeat rate %, single-buy %, avg orders/customer
- *  2. AI summary banner (lavender)
- *  3. Two donuts — customer status + purchase pattern
- *  4. Purchase Frequency stacked horizontal bar (Revenue vs Customers)
- *  5. Frequency table — bucket × avg basket × customers × % × orders × total
- *  6. First-time vs Returning customers + revenue side-by-side
- *  7. Monthly Sales (First Purchase vs Returning) + Retention 3/6m panel
+ * Both the Customer-status donut and the Purchase-pattern donut now
+ * live on the Segment Analysis page — they were redundant here.
+ *
+ * The Revenue/Customers stacked bar previously rendered with raw
+ * values on the same axis, which hid the Customers row entirely
+ * (revenue is in millions, customers in thousands). Each lane is now
+ * normalised to its own total so both rows always show.
  */
 export const Frequency = () => {
   const ws = workspaces.current()
@@ -38,8 +35,6 @@ export const Frequency = () => {
 
   const customers = dataset.customersWithOverlay(ws.id)
   const buckets = dataset.frequencyTable(ws.id)
-  const statusBuckets = dataset.customerStatusBuckets(ws.id)
-  const patternBuckets = dataset.purchasePattern(ws.id)
   const firstVsReturning = dataset.firstVsReturning(ws.id)
   const retentionStats = dataset.retentionStats(ws.id)
 
@@ -56,27 +51,51 @@ export const Frequency = () => {
   const firstRevenue = totalRevenue - repeatRevenue
   const repeatCustomers = customers.filter((c) => c.orders >= 2).length
 
-  /* Build stacked-bar data: two rows (Revenue / Customers) with one
-   * stack segment per frequency bucket. Recharts wants a flat object
-   * where each bucket name is its own key. */
+  /* Stacked-bar data: each lane sums to 100 (% of its own total)
+   *  so both Revenue and Customers rows are visible together. The
+   *  raw absolute is kept on payload._raw for tooltip display. */
+  const totalRevenueAll = buckets.totals.value || 1
+  const totalCustomersAll = buckets.totals.count || 1
   const stacked = [
-    Object.fromEntries([
-      ['lane', 'Revenue'],
-      ...buckets.rows.map((b) => [b.bucket, b.value]),
-    ]) as Record<string, any>,
-    Object.fromEntries([
-      ['lane', 'Customers'],
-      ...buckets.rows.map((b) => [b.bucket, b.count]),
-    ]) as Record<string, any>,
-  ]
+    {
+      lane: 'Revenue',
+      _grand: totalRevenueAll,
+      ...Object.fromEntries(
+        buckets.rows.map((b) => [b.bucket, (b.value / totalRevenueAll) * 100]),
+      ),
+      _raw: Object.fromEntries(buckets.rows.map((b) => [b.bucket, b.value])),
+    },
+    {
+      lane: 'Customers',
+      _grand: totalCustomersAll,
+      ...Object.fromEntries(
+        buckets.rows.map((b) => [b.bucket, (b.count / totalCustomersAll) * 100]),
+      ),
+      _raw: Object.fromEntries(buckets.rows.map((b) => [b.bucket, b.count])),
+    },
+  ] as Array<Record<string, any>>
 
-  /* 6m totals for the side-by-side first-vs-returning charts. */
   const totalFirst6m = firstVsReturning.reduce((s, m) => s + m.first, 0)
   const totalReturning6m = firstVsReturning.reduce((s, m) => s + m.returning, 0)
 
   return (
     <div className="space-y-5">
-      {/* Headline banner */}
+      <PageInsight
+        kind="info"
+        title="ข้อสังเกตจาก Frequency"
+        items={[
+          <>
+            ลูกค้าส่วนใหญ่ <strong>{onceOnlyShare.toFixed(0)}%</strong> ซื้อแค่ครั้งเดียว ทำให้อัตรากลับมาซื้อเพียง{' '}
+            <strong>{retentionStats.repeatRate.toFixed(1)}%</strong> และความถี่เฉลี่ยต่ำ ({avgOrders.toFixed(2)}) —
+            ควรเน้นกระตุ้นให้เกิดการซื้อครั้งที่สอง
+          </>,
+          <>
+            ยอดขายจากลูกค้าซ้ำคิดเป็น <strong>{((repeatRevenue / totalRevenue) * 100).toFixed(1)}%</strong> ของรวม —
+            {repeatRevenue / totalRevenue > 0.5 ? ' แข็งแกร่ง' : ' พึ่งลูกค้าใหม่มาก ต้องลงทุนใน retention'}
+          </>,
+        ]}
+      />
+
       <div className="card bg-emerald-50 border border-emerald-200 px-4 py-3 flex flex-wrap items-center gap-3 text-sm">
         <span className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">📊</span>
         <span className="text-slate-700">
@@ -93,60 +112,34 @@ export const Frequency = () => {
         </span>
       </div>
 
-      {/* AI summary banner */}
-      <div className="card bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 px-4 py-3 flex items-center gap-3 text-sm">
-        <Sparkles className="w-4 h-4 text-violet-600 shrink-0" />
-        <span className="text-slate-700">
-          ลูกค้าส่วนใหญ่ <strong>{onceOnlyShare.toFixed(0)}%</strong> ซื้อแค่ครั้งเดียว ทำให้อัตรากลับมาซื้อเพียง{' '}
-          <strong className="text-violet-700">{retentionStats.repeatRate.toFixed(1)}%</strong> และความถี่เฉลี่ยต่ำ
-          ({avgOrders.toFixed(2)}) หมายถึงความภักดีต่ำ ควรเน้นกระตุ้นให้เกิดการซื้อครั้งที่สองและเพิ่มการกลับมาซื้อซ้ำ
-        </span>
-      </div>
-
-      {/* Two donuts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <DonutCard
-          title="สถานะลูกค้า"
-          sub="ดี = ซื้อสม่ำเสมอ · เฝ้าระวัง = เริ่มห่าง · วิกฤต = นานไม่ซื้อ · หายไป = ไม่กลับมาซื้อ"
-          data={statusBuckets.map((b) => ({ name: b.label, value: b.count, color: b.color }))}
-        />
-        <DonutCard
-          title="รูปแบบการซื้อ"
-          data={patternBuckets.map((b) => ({ name: b.label, value: b.count, color: b.color }))}
-        />
-      </div>
-
       {/* Stacked Purchase Frequency */}
       <section className="card p-5">
         <div className="mb-2">
           <h3 className="font-bold text-slate-900">Purchase Frequency — Revenue vs Customers</h3>
-          <p className="text-xs text-slate-500">Each bar shows % by frequency group — click a segment to compare</p>
+          <p className="text-xs text-slate-500">Each row shows % share by frequency group — both lanes normalised to 100%</p>
         </div>
-        <ResponsiveContainer width="100%" height={180}>
+        <ResponsiveContainer width="100%" height={200}>
           <BarChart data={stacked} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
             <XAxis
               type="number"
               tick={{ fontSize: 10, fill: '#64748b' }}
-              domain={[0, 'dataMax']}
-              tickFormatter={(v: number) => {
-                /* Express as % of grand total */
-                const grand = buckets.totals.value || buckets.totals.count
-                return `${((v / grand) * 100).toFixed(0)}%`
-              }}
+              domain={[0, 100]}
+              tickFormatter={(v: number) => `${v}%`}
             />
             <YAxis dataKey="lane" type="category" tick={{ fontSize: 12, fill: '#334155' }} width={80} />
             <Tooltip
               contentStyle={{ borderRadius: 12, fontSize: 12 }}
               formatter={(v: number, name: string, props: any) => {
-                const grand = props.payload.lane === 'Revenue' ? buckets.totals.value : buckets.totals.count
-                const pct = ((v / grand) * 100).toFixed(1)
-                const label = props.payload.lane === 'Revenue' ? formatTHB(v, { compact: true }) : formatNumber(v)
-                return [`${label} (${pct}%)`, `${name} ครั้ง`]
+                const raw = props.payload._raw[name as string] as number | undefined
+                const label = props.payload.lane === 'Revenue'
+                  ? formatTHB(raw ?? 0, { compact: true })
+                  : formatNumber(raw ?? 0)
+                return [`${label} (${v.toFixed(1)}%)`, `${name} ครั้ง`]
               }}
             />
             {buckets.rows.map((b, i) => (
-              <Bar key={b.bucket} dataKey={b.bucket} stackId="a" fill={FREQ_COLORS[i]} radius={[0, 0, 0, 0]} />
+              <Bar key={b.bucket} dataKey={b.bucket} stackId="a" fill={FREQ_COLORS[i]} />
             ))}
           </BarChart>
         </ResponsiveContainer>
@@ -320,39 +313,6 @@ export const Frequency = () => {
     </div>
   )
 }
-
-const DonutCard = ({
-  title,
-  sub,
-  data,
-}: {
-  title: string
-  sub?:  string
-  data:  { name: string; value: number; color: string }[]
-}) => (
-  <section className="card p-5">
-    <h3 className="font-bold text-slate-900 mb-1">{title}</h3>
-    {sub && <p className="text-[11px] text-slate-500 mb-2">{sub}</p>}
-    <ResponsiveContainer width="100%" height={200}>
-      <PieChart>
-        <Pie data={data} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85} paddingAngle={2}>
-          {data.map((d, i) => (
-            <Cell key={i} fill={d.color} />
-          ))}
-        </Pie>
-        <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} formatter={(v: number) => [formatNumber(v), 'ลูกค้า']} />
-      </PieChart>
-    </ResponsiveContainer>
-    <div className="flex flex-wrap gap-3 justify-center text-[11px] text-slate-600 mt-2">
-      {data.map((d) => (
-        <span key={d.name} className="inline-flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
-          {d.name}
-        </span>
-      ))}
-    </div>
-  </section>
-)
 
 const ComparisonCard = ({
   title,

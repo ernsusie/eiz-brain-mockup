@@ -23,6 +23,7 @@ import { useState } from 'react'
 import { workspaces } from '@/lib/workspaces'
 import { dataset } from '@/lib/mock-data'
 import { cn, formatNumber, formatTHB } from '@/lib/utils'
+import { PageInsight } from '@/components/PageInsight'
 
 const BADGE_COLOR: Record<string, string> = {
   first_buy_cooling:         'bg-amber-100 text-amber-700',
@@ -60,8 +61,27 @@ export const Returns = () => {
   const lostRevenue   = monthlyRet.reduce((s, m) => s + m.lost, 0)
   const returnRate    = (totalReturned / Math.max(1, totalOrders)) * 100
 
+  const topProvince = byProvince[0]
+  const topChannel = [...channelSplit].sort((a, b) => b.rate - a.rate)[0]
+
   return (
     <div className="space-y-5">
+      <PageInsight
+        kind="warning"
+        title="ข้อสังเกตจาก Returns"
+        items={[
+          <>
+            Return rate <strong>{returnRate.toFixed(2)}%</strong> · มูลค่าที่เสียไป{' '}
+            <strong>{formatTHB(lostRevenue, { compact: true })}</strong> — ช่องทางอันตรายที่สุด:{' '}
+            <strong>{topChannel?.channel ?? '—'}</strong> ({topChannel?.rate.toFixed(2) ?? '0'}%)
+          </>,
+          <>
+            จังหวัด <strong>{topProvince?.province ?? '—'}</strong> คืนสินค้ามากสุด{' '}
+            <strong>{topProvince?.rate.toFixed(1) ?? '0'}%</strong> — ควรตรวจ packaging + ขนส่ง
+          </>,
+        ]}
+      />
+
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-xs text-slate-500 italic">
           Returns = orders shipped but customer refused delivery — indicates bad behavior and real loss

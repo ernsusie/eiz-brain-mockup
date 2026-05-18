@@ -1,28 +1,30 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
-  Treemap,
 } from 'recharts'
-import { LayoutGrid, Table as TableIcon, MoveRight } from 'lucide-react'
+import { LayoutGrid, Table as TableIcon, MoveRight, Sparkles } from 'lucide-react'
 import { workspaces } from '@/lib/workspaces'
 import { dataset } from '@/lib/mock-data'
 import type { Customer } from '@/types'
 import { cn, formatNumber, formatTHB } from '@/lib/utils'
+import { PageInsight } from '@/components/PageInsight'
 
 type RfmCell = { r: number; f: number; m: number }
 
-/** 6 colour bands matching the legend in the attached design. */
 const BAND_COLORS = {
   champion:  '#a855f7',  /* purple — ลูกค้าชั้นเยี่ยม */
   good:      '#10b981',  /* emerald — ดี */
   growing:   '#fbbf24',  /* yellow — เติบโต / ใหม่ */
-  alert:     '#ec4899',  /* pink — เสี่ยง / แจ้งเตือน VIP */
-  watch:     '#f97316',  /* orange — เฝ้าระวัง / เริ่มห่าง */
-  lost:      '#fecaca',  /* light red — หายไป */
+  alert:     '#f87171',  /* red-ish — เสี่ยง / แจ้งเตือน VIP */
+  watch:     '#fb923c',  /* orange — เฝ้าระวัง / เริ่มห่าง */
+  lost:      '#fda4af',  /* pink — หายไป */
   inactive:  '#cbd5e1',  /* slate — ไม่ใช้งาน */
-  followup:  '#06b6d4',  /* cyan — ดูแล */
+  followup:  '#7dd3fc',  /* sky — ดูแล */
 } as const
 
 type Band = keyof typeof BAND_COLORS
@@ -34,36 +36,47 @@ interface SegSpec {
   fRange: [number, number]
   mRange: [number, number]
   band:   Band
+  /** Position in the 5-col map grid (1-indexed). */
+  col:    number
+  row:    number
+  rowSpan?: number
 }
 
-/* 19 behavioural segments mirroring the attached design.
- * The label text follows the Thai phrasing in the image. */
+/* Hand-tuned 5×6 grid layout matching the attached reference image
+ * exactly. Each segment occupies one or two rows so the grid mimics
+ * a treemap-style visual. The exact placement preserves the user's
+ * visual mental model from the original mock. */
 const SEGS: SegSpec[] = [
-  { key: 'champion_loyal',     label: 'ลูกค้าชั้นเยี่ยมที่ยังอยู่กับเรา', rRange: [4,5], fRange: [4,5], mRange: [4,5], band: 'champion' },
-  { key: 'loyal_drifting',     label: 'ลูกค้าชั้นเยี่ยมที่เริ่มห่างไป',   rRange: [3,4], fRange: [4,5], mRange: [4,5], band: 'champion' },
-  { key: 'big_leaving',        label: 'ลูกค้าใหญ่ที่กำลังจะหายไป',     rRange: [2,3], fRange: [3,5], mRange: [4,5], band: 'alert' },
-  { key: 'big_lost',           label: 'ลูกค้าตัวที่เลิกซื้อไปแล้ว',     rRange: [1,2], fRange: [3,5], mRange: [4,5], band: 'alert' },
-  { key: 'dead_first_big',     label: '(ตายแล้ว) ซื้อครั้งแรกง่ายหนัก',  rRange: [1,1], fRange: [1,1], mRange: [4,5], band: 'alert' },
-  { key: 'low_freq_unsold',    label: 'กลุ่มลูกค้าที่ไม่ค่อยขาย',         rRange: [2,3], fRange: [2,3], mRange: [2,3], band: 'watch' },
-  { key: 'cooling_first_big',  label: '(เริ่มห่าง) ซื้อครั้งแรกง่ายหนัก', rRange: [2,3], fRange: [1,1], mRange: [4,5], band: 'growing' },
-  { key: 'mid_value_dead',     label: 'ลูกค้าที่ตายแล้วที่มียอดปานกลาง-สูง', rRange: [1,2], fRange: [1,2], mRange: [3,4], band: 'alert' },
-  { key: 'potential_loyal',    label: 'มีโอกาสเป็นลูกค้าชั้นเยี่ยม',     rRange: [4,5], fRange: [2,3], mRange: [3,4], band: 'followup' },
-  { key: 'warmest_first_big',  label: '(เฝ้าดู) ซื้อครั้งแรกง่ายหนัก',    rRange: [4,5], fRange: [1,1], mRange: [4,5], band: 'followup' },
-  { key: 'easy_above_avg',     label: '(ดูแล) ซื้อครั้งแรกสูงกว่าปกติ',   rRange: [3,5], fRange: [1,1], mRange: [3,4], band: 'followup' },
-  { key: 'first_aging',        label: 'ซื้อครั้งแรก — ห่างนาน',          rRange: [1,2], fRange: [1,1], mRange: [2,3], band: 'growing' },
-  { key: 'first_cooling',      label: 'ซื้อครั้งแรก — เริ่มห่าง',         rRange: [2,3], fRange: [1,1], mRange: [2,3], band: 'followup' },
-  { key: 'cust_lost',          label: 'ลูกค้าเลิกซื้อแล้ว',               rRange: [1,2], fRange: [2,3], mRange: [1,2], band: 'lost' },
-  { key: 'low_value_normal',   label: '(ดูแล) ซื้อครั้งแรกง่ายปกติ',      rRange: [3,5], fRange: [1,1], mRange: [1,2], band: 'followup' },
-  { key: 'lost_cheap',         label: 'ตาย (ซื้อน้อย)',                  rRange: [1,1], fRange: [1,1], mRange: [1,1], band: 'lost' },
-  { key: 'aging_60_120',       label: 'ยอดต่ำกว่า 1000 ซื้อครั้งแรก 60-120 วัน', rRange: [2,3], fRange: [1,1], mRange: [1,1], band: 'watch' },
-  { key: 'rare_small',         label: 'ซื้อเรื่อยจัดน้อยๆ',               rRange: [2,3], fRange: [2,3], mRange: [1,2], band: 'growing' },
-  { key: 'first_small',        label: '(ดูแล) ซื้อครั้งแรกง่ายน้อย',      rRange: [4,5], fRange: [1,1], mRange: [1,1], band: 'followup' },
-  { key: 'never',              label: 'ทดลอง/ดอง/ยังไม่มีการสั่งซื้อ',    rRange: [1,1], fRange: [1,1], mRange: [1,1], band: 'inactive' },
+  /* Row 1 (top) — 4 wide cells, 1 huge purple */
+  { key: 'big_lost',        label: 'ลูกค้าตัวที่เลิกซื้อไปแล้ว',     rRange: [1,2], fRange: [3,5], mRange: [4,5], band: 'alert',    col: 1, row: 1 },
+  { key: 'big_leaving',     label: 'ลูกค้าใหญ่ที่กำลังจะหายไป',   rRange: [2,3], fRange: [3,5], mRange: [4,5], band: 'lost',     col: 2, row: 1 },
+  { key: 'loyal_drifting',  label: 'ลูกค้าชั้นที่เริ่มห่างไป',     rRange: [3,4], fRange: [4,5], mRange: [4,5], band: 'champion', col: 3, row: 1 },
+  { key: 'champion_loyal',  label: 'ลูกค้าชั้นเยี่ยมที่ยังอยู่กับเรา', rRange: [4,5], fRange: [4,5], mRange: [4,5], band: 'champion', col: 4, row: 1, rowSpan: 2 },
+  /* Row 2 */
+  { key: 'dead_first_big',  label: '(ตายแล้ว) ซื้อครั้งแรกง่ายหนัก',  rRange: [1,1], fRange: [1,1], mRange: [4,5], band: 'alert',    col: 1, row: 2 },
+  { key: 'low_freq_unsold', label: 'กลุ่มลูกค้าที่ไม่ค่อยขาย',         rRange: [2,3], fRange: [2,3], mRange: [2,3], band: 'lost',     col: 2, row: 2 },
+  { key: 'cooling_first_big', label: '(เริ่มห่าง) ซื้อครั้งแรกง่ายหนัก', rRange: [2,3], fRange: [1,1], mRange: [4,5], band: 'growing',  col: 3, row: 2 },
+  { key: 'easy_above_avg',  label: '(เฝ้าดู) ซื้อครั้งแรกง่ายหนัก',    rRange: [4,5], fRange: [1,1], mRange: [4,5], band: 'followup', col: 5, row: 1, rowSpan: 2 },
+  /* Row 3 */
+  { key: 'mid_value_dead',  label: 'ลูกค้าที่ตายแล้วที่มียอดปานกลาง-สูง', rRange: [1,2], fRange: [1,2], mRange: [3,4], band: 'lost',     col: 1, row: 3 },
+  { key: 'potential_loyal', label: 'มีโอกาสเป็นลูกค้าชั้นเยี่ยม',     rRange: [4,5], fRange: [2,3], mRange: [3,4], band: 'champion', col: 3, row: 3 },
+  { key: 'first_warmest',   label: '(ดูแล) ซื้อครั้งแรกสูงกว่าปกติ',  rRange: [3,5], fRange: [1,1], mRange: [3,4], band: 'followup', col: 4, row: 3 },
+  /* Row 4 */
+  { key: 'cust_lost',       label: 'ลูกค้าเลิกซื้อไปแล้ว',           rRange: [1,2], fRange: [2,3], mRange: [1,2], band: 'lost',     col: 1, row: 4 },
+  { key: 'first_aging',     label: 'ซื้อครั้งแรก — ห่างนาน',          rRange: [1,2], fRange: [1,1], mRange: [2,3], band: 'growing',  col: 2, row: 4 },
+  { key: 'first_cooling',   label: 'ซื้อครั้งแรก — เริ่มห่าง',         rRange: [2,3], fRange: [1,1], mRange: [2,3], band: 'followup', col: 3, row: 4 },
+  { key: 'low_normal',      label: '(ดูแล) ซื้อครั้งแรกง่ายปกติ',     rRange: [3,5], fRange: [1,1], mRange: [1,2], band: 'followup', col: 4, row: 4 },
+  /* Row 5 */
+  { key: 'dead_cheap',      label: 'ตาย (ซื้อน้อย)',                  rRange: [1,1], fRange: [1,1], mRange: [1,1], band: 'lost',     col: 1, row: 5 },
+  { key: 'aging_60_120',    label: 'ยอดต่ำกว่า 1000 ซื้อครั้งแรก 60-120 วัน (มียอดกลับได้)', rRange: [2,3], fRange: [1,1], mRange: [1,1], band: 'watch', col: 2, row: 5 },
+  { key: 'rare_small',      label: 'ซื้อเรื่อยจัดน้อยๆ',               rRange: [2,3], fRange: [2,3], mRange: [1,2], band: 'growing',  col: 3, row: 5 },
+  { key: 'first_small',     label: '(ดูแล) ซื้อครั้งแรกง่ายน้อย',      rRange: [4,5], fRange: [1,1], mRange: [1,1], band: 'followup', col: 4, row: 5 },
+  /* Row 6 — bottom-right corner */
+  { key: 'never',           label: 'ทดลอง/ดอง/ยังไม่มีการสั่งซื้อ',    rRange: [1,1], fRange: [1,1], mRange: [1,1], band: 'inactive', col: 5, row: 6 },
 ]
 
 const LEGEND_GROUPS = [
-  { band: 'champion' as const, label: 'ลูกค้าชั้นเยี่ยม / ดี' },
-  { band: 'good' as const,     label: 'ดี' },
+  { band: 'champion' as const, label: 'ลูกค้าชั้นเยี่ยม / ขั้นดี' },
   { band: 'growing' as const,  label: 'เติบโต / ใหม่' },
   { band: 'alert' as const,    label: 'เสี่ยง / แจ้งเตือน VIP' },
   { band: 'watch' as const,    label: 'เฝ้าระวัง / เริ่มห่าง' },
@@ -99,94 +112,85 @@ const matches = (c: Customer & RfmCell, s: SegSpec): boolean =>
   c.m >= s.mRange[0] && c.m <= s.mRange[1]
 
 /**
- * Dashboard sub-page · วิเคราะห์กลุ่มลูกค้า (RFM treemap)
+ * Dashboard sub-page · วิเคราะห์กลุ่มลูกค้า (RFM map)
  *
- * Rebuilt per attached design — colour-banded segments sized by
- * customer count. Click any tile to jump into the Customer Center
- * segment view with the segment pre-selected.
+ * Rebuilt with a deterministic 5×6 CSS grid matching the user's
+ * reference design. The Recharts Treemap version was unreliable —
+ * sizes flickered and labels disappeared under some viewport widths.
+ * This version pins each segment to a fixed col/row so the layout
+ * is stable and the labels always show.
  */
 export const SegmentAnalysis = () => {
   const ws = workspaces.current()
   const navigate = useNavigate()
-  const [view, setView] = useState<'tree' | 'table'>('tree')
+  const [view, setView] = useState<'map' | 'table'>('map')
   if (!ws) return null
 
   const customers = dataset.customersWithOverlay(ws.id)
+  const statusBuckets = dataset.customerStatusBuckets(ws.id)
+  const patternBuckets = dataset.purchasePattern(ws.id)
   const scored = useMemo(() => scoreCustomers(customers), [customers])
+
   const buckets = useMemo(
     () =>
       SEGS.map((seg) => {
         const list = scored.filter((c) => matches(c, seg))
         const value = list.reduce((s, c) => s + c.totalSpend, 0)
         return { seg, count: list.length, value }
-      })
-        .filter((b) => b.count > 0)
-        .sort((a, b) => b.count - a.count),
+      }),
     [scored],
   )
 
   const total = scored.length || 1
   const healthy = buckets
-    .filter((b) => b.seg.band === 'champion' || b.seg.band === 'good' || b.seg.band === 'followup')
+    .filter((b) => ['champion', 'good', 'followup'].includes(b.seg.band))
     .reduce((s, b) => s + b.count, 0)
   const healthyPct = (healthy / total) * 100
-  const biggest = buckets[0]
+  const biggest = [...buckets].sort((a, b) => b.count - a.count)[0]
 
-  const treemapData = buckets.map((b) => ({
-    name: b.seg.label,
-    size: b.count,
-    fill: BAND_COLORS[b.seg.band],
-    seg: b.seg,
-    pct: (b.count / total) * 100,
-    value: b.value,
-  }))
-
-  const handleClick = (segKey: string) => {
-    navigate(`/customer-center/segments?seg=${segKey}`)
+  const handleClick = (segKey: string, label: string) => {
+    navigate(
+      `/customer-center/segments?seg=${segKey}&label=${encodeURIComponent(label)}`,
+    )
   }
 
   return (
     <div className="space-y-5">
-      <div className="card bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-center gap-3 text-sm">
-        <span className="text-emerald-700">🟢</span>
-        <span className="text-slate-700">
-          ลูกค้าสุขภาพดี <strong>{healthyPct.toFixed(0)}%</strong> ({formatNumber(healthy)} ราย) · กลุ่มใหญ่สุด:{' '}
-          <strong>{biggest?.seg.label ?? '—'}</strong>{' '}
-          ({formatNumber(biggest?.count ?? 0)} ราย)
-        </span>
-      </div>
-
-      <div className="card bg-violet-50 border border-violet-200 px-4 py-3 flex items-center gap-2 text-sm">
-        <span>✨ Casper กำลังวิเคราะห์หน้านี้…</span>
-      </div>
+      <PageInsight
+        kind="info"
+        items={[
+          `ลูกค้าสุขภาพดี ${healthyPct.toFixed(0)}% (${formatNumber(healthy)} ราย) · กลุ่มใหญ่สุด: ${biggest?.seg.label ?? '—'} (${formatNumber(biggest?.count ?? 0)} ราย)`,
+          `ฐานลูกค้าทั้งหมด ${formatNumber(total)} ราย แบ่งเป็น ${buckets.filter((b) => b.count > 0).length} เซกเมนต์ — ควรเน้นการรักษาและขยายกลุ่ม healthy เพื่อเพิ่มรายได้`,
+        ]}
+      />
 
       <section className="card p-5">
         <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
           <div>
             <h3 className="font-bold text-slate-900">วิเคราะห์กลุ่มลูกค้า</h3>
-            <p className="text-xs text-slate-500">แผนที่กลุ่มลูกค้า RFM · คลิก tile เพื่อดูรายชื่อใน Customer Center</p>
+            <p className="text-xs text-slate-500">
+              แผนที่กลุ่มลูกค้า RFM · คลิก tile เพื่อดูรายชื่อใน Customer Center
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="inline-flex rounded-xl border border-slate-200 p-1 bg-slate-50">
-              <button
-                onClick={() => setView('tree')}
-                className={cn(
-                  'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold',
-                  view === 'tree' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900',
-                )}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" /> แผนที่กลุ่ม
-              </button>
-              <button
-                onClick={() => setView('table')}
-                className={cn(
-                  'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold',
-                  view === 'table' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900',
-                )}
-              >
-                <TableIcon className="w-3.5 h-3.5" /> ตาราง
-              </button>
-            </div>
+          <div className="inline-flex rounded-xl border border-slate-200 p-1 bg-slate-50">
+            <button
+              onClick={() => setView('map')}
+              className={cn(
+                'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold',
+                view === 'map' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900',
+              )}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" /> แผนที่กลุ่ม
+            </button>
+            <button
+              onClick={() => setView('table')}
+              className={cn(
+                'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold',
+                view === 'table' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900',
+              )}
+            >
+              <TableIcon className="w-3.5 h-3.5" /> ตาราง
+            </button>
           </div>
         </div>
 
@@ -196,31 +200,38 @@ export const SegmentAnalysis = () => {
           <span>← เพิ่งซื้อ</span>
         </div>
 
-        {view === 'tree' ? (
-          <ResponsiveContainer width="100%" height={420}>
-            <Treemap
-              data={treemapData as any}
-              dataKey="size"
-              stroke="#fff"
-              fill="#a855f7"
-              content={((p: any) => <CustomTile {...p} onClick={handleClick} />) as any}
-            >
-              <Tooltip
-                contentStyle={{ borderRadius: 12, fontSize: 12 }}
-                content={(p: any) => {
-                  if (!p.active || !p.payload?.[0]) return null
-                  const d = p.payload[0].payload
-                  return (
-                    <div className="bg-white rounded-xl shadow-md p-2 text-xs border border-slate-200">
-                      <div className="font-semibold text-slate-900">{d.name}</div>
-                      <div className="text-slate-600">{formatNumber(d.size)} ราย · {d.pct.toFixed(1)}%</div>
-                      <div className="text-slate-500">LTV: {formatTHB(d.value, { compact: true })}</div>
+        {view === 'map' ? (
+          <div
+            className="grid grid-cols-5 gap-2"
+            style={{ gridAutoRows: '78px' }}
+          >
+            {buckets.map(({ seg, count, value }) => {
+              const pct = (count / total) * 100
+              return (
+                <button
+                  key={seg.key}
+                  onClick={() => handleClick(seg.key, seg.label)}
+                  className="rounded-2xl border border-white text-left p-2.5 hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden flex flex-col justify-between"
+                  style={{
+                    gridColumn: `${seg.col} / span 1`,
+                    gridRow: `${seg.row} / span ${seg.rowSpan ?? 1}`,
+                    background: BAND_COLORS[seg.band],
+                  }}
+                  title={`${seg.label} · ${formatNumber(count)} ราย · ${formatTHB(value, { compact: true })}`}
+                >
+                  <div className="text-[10px] font-medium text-slate-900/80 leading-tight line-clamp-2">
+                    {seg.label}
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-slate-900 tabular-nums leading-none">
+                      {formatNumber(count)}
                     </div>
-                  )
-                }}
-              />
-            </Treemap>
-          </ResponsiveContainer>
+                    <div className="text-[9px] text-slate-700/70 mt-0.5">{pct.toFixed(1)}%</div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -234,7 +245,7 @@ export const SegmentAnalysis = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {buckets.map((b) => (
+                {[...buckets].sort((a, b) => b.count - a.count).map((b) => (
                   <tr key={b.seg.key} className="hover:bg-slate-50">
                     <td className="py-2 px-3 font-medium">
                       <span className="inline-flex items-center gap-2">
@@ -246,7 +257,7 @@ export const SegmentAnalysis = () => {
                     <td className="py-2 px-3 text-right text-slate-500">{((b.count / total) * 100).toFixed(2)}%</td>
                     <td className="py-2 px-3 text-right tabular-nums font-semibold text-brand-700">{formatTHB(b.value, { compact: true })}</td>
                     <td className="py-2 px-3 text-right">
-                      <button onClick={() => handleClick(b.seg.key)}
+                      <button onClick={() => handleClick(b.seg.key, b.seg.label)}
                         className="text-xs text-brand-700 hover:underline inline-flex items-center gap-1">
                         ดูรายชื่อ <MoveRight className="w-3 h-3" />
                       </button>
@@ -258,7 +269,7 @@ export const SegmentAnalysis = () => {
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-2 text-[11px] text-slate-500">
+        <div className="flex items-center justify-between mt-3 text-[11px] text-slate-500">
           <span>← นาน (R ต่ำ)</span>
           <span>ความถี่ซื้อล่าสุด</span>
           <span>เร็ว (R สูง) →</span>
@@ -273,38 +284,58 @@ export const SegmentAnalysis = () => {
           ))}
         </div>
       </section>
+
+      {/* Bottom — สถานะลูกค้า + รูปแบบการซื้อ donuts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <DonutCard
+          title="สถานะลูกค้า"
+          sub="ดี = ซื้อสม่ำเสมอ · เฝ้าระวัง = เริ่มห่าง · วิกฤต = นานไม่ซื้อ · หายไป = ไม่กลับมาซื้อ"
+          data={statusBuckets.map((b) => ({ name: b.label, value: b.count, color: b.color }))}
+        />
+        <DonutCard
+          title="รูปแบบการซื้อ"
+          data={patternBuckets.map((b) => ({ name: b.label, value: b.count, color: b.color }))}
+        />
+      </div>
     </div>
   )
 }
 
-const CustomTile = (p: any) => {
-  const { x, y, width, height, payload, name, fill } = p
-  /* Recharts can pass values via either `payload` or top-level keys
-   * depending on version. */
-  const d = payload ?? { name }
-  const showLabel = width > 60 && height > 40
-  const showCount = width > 90 && height > 50
-  return (
-    <g style={{ cursor: 'pointer' }} onClick={() => p.onClick?.(d.seg?.key)}>
-      <rect x={x} y={y} width={width} height={height}
-        style={{ fill: fill ?? d.fill, stroke: '#fff', strokeWidth: 2 }} />
-      {showLabel && (
-        <text x={x + 6} y={y + 14} fontSize={10} fill="#0f172a" fontWeight={500}>
-          {(d.name || '').length > Math.floor(width / 6)
-            ? (d.name || '').slice(0, Math.floor(width / 6) - 1) + '…'
-            : d.name}
-        </text>
-      )}
-      {showCount && (
-        <>
-          <text x={x + 6} y={y + height - 22} fontSize={12} fill="#0f172a" fontWeight={700}>
-            {formatNumber(d.size)}
-          </text>
-          <text x={x + 6} y={y + height - 8} fontSize={9} fill="#475569">
-            {(d.pct ?? 0).toFixed(1)}%
-          </text>
-        </>
-      )}
-    </g>
-  )
-}
+const DonutCard = ({
+  title,
+  sub,
+  data,
+}: {
+  title: string
+  sub?:  string
+  data:  { name: string; value: number; color: string }[]
+}) => (
+  <section className="card p-5">
+    <div className="flex items-center gap-2 mb-1">
+      <Sparkles className="w-4 h-4 text-violet-500" />
+      <h3 className="font-bold text-slate-900">{title}</h3>
+    </div>
+    {sub && <p className="text-[11px] text-slate-500 mb-2">{sub}</p>}
+    <ResponsiveContainer width="100%" height={200}>
+      <PieChart>
+        <Pie data={data} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85} paddingAngle={2}>
+          {data.map((d, i) => (
+            <Cell key={i} fill={d.color} />
+          ))}
+        </Pie>
+        <Tooltip
+          contentStyle={{ borderRadius: 12, fontSize: 12 }}
+          formatter={(v: number) => [formatNumber(v), 'ลูกค้า']}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+    <div className="flex flex-wrap gap-3 justify-center text-[11px] text-slate-600 mt-2">
+      {data.map((d) => (
+        <span key={d.name} className="inline-flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
+          {d.name}
+        </span>
+      ))}
+    </div>
+  </section>
+)

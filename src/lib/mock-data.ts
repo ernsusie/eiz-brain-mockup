@@ -462,6 +462,55 @@ export const generateYtdGrowth = (workspaceId: string) => {
   return { overall, byChannel, byProvince, byProduct, bySale }
 }
 
+/* Urgent situations — 4 colour-coded cards driven by customer status.
+ *  Used at the top of Sale Performance to direct the operator's
+ *  attention to the highest-leverage groups today. */
+export const generateUrgentSituations = (workspaceId: string) => {
+  const customers = generateCustomers(workspaceId)
+  const cantLose   = customers.filter((c) => c.status === 'at_risk' && c.totalSpend > 5000)
+  const atRisk     = customers.filter((c) => c.status === 'at_risk' && c.totalSpend <= 5000)
+  const potential  = customers.filter((c) => c.status === 'potential')
+  const newWaiting = customers.filter((c) => c.status === 'new' && c.orders === 1)
+  return [
+    {
+      key:        'vip_leaving',
+      color:      'red',
+      icon:       '🚨',
+      title:      'VIP กำลังหลุด',
+      desc:       `ลูกค้า VIP ${cantLose.length.toLocaleString()} ราย เริ่มห่างหาย ต้องติดต่อด่วน`,
+      count:      cantLose.length,
+      impactBaht: cantLose.reduce((s, c) => s + c.totalSpend, 0),
+    },
+    {
+      key:        'at_risk',
+      color:      'orange',
+      icon:       '⚠️',
+      title:      'ลูกค้าเสี่ยงหลุด',
+      desc:       `${atRisk.length.toLocaleString()} ราย เริ่มซื้อน้อยลง ต้องดูแล`,
+      count:      atRisk.length,
+      impactBaht: atRisk.reduce((s, c) => s + c.totalSpend, 0),
+    },
+    {
+      key:        'potential',
+      color:      'green',
+      icon:       '⭐',
+      title:      'ดาวรุ่ง',
+      desc:       `ลูกค้าที่มีศักยภาพสูง ${potential.length.toLocaleString()} ราย`,
+      count:      potential.length,
+      impactBaht: potential.reduce((s, c) => s + c.totalSpend, 0),
+    },
+    {
+      key:        'new_followup',
+      color:      'blue',
+      icon:       '👋',
+      title:      'ลูกค้าใหม่รอ Follow-up',
+      desc:       `${newWaiting.length.toLocaleString()} ราย ยังไม่กลับมาซื้อ`,
+      count:      newWaiting.length,
+      impactBaht: newWaiting.reduce((s, c) => s + c.totalSpend, 0),
+    },
+  ]
+}
+
 /* Per-month returns + lost revenue — fuels the Monthly Return Trend
  *  bar+line chart on the Returns page. */
 export const generateMonthlyReturns = (workspaceId: string) => {
@@ -949,6 +998,8 @@ export const dataset = {
     cached(`ftbl-${workspaceId}`, () => generateFrequencyTable(workspaceId)),
   retentionStats: (workspaceId: string) =>
     cached(`rstat-${workspaceId}`, () => generateRetentionStats(workspaceId)),
+  urgent: (workspaceId: string) =>
+    cached(`urg-${workspaceId}`, () => generateUrgentSituations(workspaceId)),
   provinces: (workspaceId: string) =>
     cached(`provinces-${workspaceId}`, () => generateProvinceTop(workspaceId)),
   cohorts: (workspaceId: string) =>

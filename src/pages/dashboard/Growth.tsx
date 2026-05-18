@@ -13,6 +13,7 @@ import { useState } from 'react'
 import { workspaces } from '@/lib/workspaces'
 import { dataset } from '@/lib/mock-data'
 import { cn, formatNumber, formatPct, formatTHB } from '@/lib/utils'
+import { PageInsight } from '@/components/PageInsight'
 
 type Period = 'wow' | 'mom' | 'yoy'
 
@@ -59,6 +60,28 @@ export const Growth = () => {
 
   return (
     <div className="space-y-6">
+      <PageInsight
+        kind="info"
+        title="ข้อสังเกตจาก Growth"
+        items={[
+          <>
+            ภาพรวม{' '}
+            <strong className={ytd.overall.yoy >= 0 ? 'text-emerald-700' : 'text-rose-600'}>
+              YoY {ytd.overall.yoy >= 0 ? '+' : ''}{ytd.overall.yoy.toFixed(1)}%
+            </strong>{' '}
+            ·{' '}
+            <strong className={ytd.overall.mom >= 0 ? 'text-emerald-700' : 'text-rose-600'}>
+              MoM {ytd.overall.mom >= 0 ? '+' : ''}{ytd.overall.mom.toFixed(1)}%
+            </strong>{' '}
+            — โตเร็วที่สุดจากช่องทาง <strong>{[...ytd.byChannel].sort((a, b) => b.mom - a.mom)[0].name}</strong>
+          </>,
+          <>
+            Return/Cancel rate ขณะนี้ <strong>{totalLossRate.toFixed(2)}%</strong> —{' '}
+            {totalLossRate > 4 ? 'ควรตรวจคุณภาพช่องทางและ packaging ด่วน' : 'อยู่ในเกณฑ์ดี'}
+          </>,
+        ]}
+      />
+
       {/* Overall growth — three pill periods */}
       <section className="story-section">
         <div className="story-header">

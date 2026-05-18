@@ -1,27 +1,31 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Bell, Building2, Lock, UserCircle, Users } from 'lucide-react'
+import { Bell, Building2, Lock, Package, Upload, UserCircle, Users } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
-/* Sub-tab nav for /settings/*. Team tab is admin-only — we hide it
- * for non-admins so they don't see "forbidden" rows in the nav. */
+/* Sub-tab nav for /settings/*. Team tab is admin-only; Upload &
+ * Replenishment are editor+ since they mutate workspace data. */
 interface Tab {
   to:         string
   label:      string
   icon:       typeof UserCircle
   adminOnly?: boolean
+  editorOnly?: boolean
 }
 
 const TABS: Tab[] = [
-  { to: '/settings/account', label: 'บัญชี', icon: UserCircle },
-  { to: '/settings/team', label: 'ทีม & สิทธิ์', icon: Users, adminOnly: true },
-  { to: '/settings/workspace', label: 'Workspace', icon: Building2 },
-  { to: '/settings/notifications', label: 'แจ้งเตือน & ภาษา', icon: Bell },
+  { to: '/settings/account',         label: 'บัญชี',                        icon: UserCircle },
+  { to: '/settings/team',            label: 'ทีม & สิทธิ์',                  icon: Users,    adminOnly: true },
+  { to: '/settings/workspace',       label: 'Workspace',                    icon: Building2 },
+  { to: '/settings/upload',          label: 'นำเข้าข้อมูล',                  icon: Upload,   editorOnly: true },
+  { to: '/settings/replenishment',   label: 'Product Follow-up & Replenishment', icon: Package,  editorOnly: true },
+  { to: '/settings/notifications',   label: 'แจ้งเตือน & ภาษา',              icon: Bell },
 ]
 
 export const SettingsLayout = () => {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
+  const isEditor = user?.role === 'admin' || user?.role === 'editor'
 
   return (
     <div className="space-y-5">
@@ -36,7 +40,11 @@ export const SettingsLayout = () => {
       </div>
 
       <div className="flex flex-wrap gap-1 bg-white rounded-2xl border border-slate-200 p-1 shadow-sm">
-        {TABS.filter((t) => !t.adminOnly || isAdmin).map((tab) => {
+        {TABS.filter((t) => {
+          if (t.adminOnly && !isAdmin) return false
+          if (t.editorOnly && !isEditor) return false
+          return true
+        }).map((tab) => {
           const Icon = tab.icon
           return (
             <NavLink

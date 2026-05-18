@@ -34,7 +34,8 @@ const App = () => (
     <Route path="/workspaces" element={<Workspaces />} />
 
     <Route element={<Layout />}>
-      <Route path="/" element={<Navigate to="/brief" replace />} />
+      {/* Default landing is /dashboard (per 2026-05-18 feedback). */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
       <Route path="/brief" element={<IntelligenceBrief />} />
 
@@ -45,13 +46,17 @@ const App = () => (
         <Route path="frequency" element={<Frequency />} />
         <Route path="geography" element={<Geography />} />
         <Route path="products" element={<Products />} />
-        <Route path="product-analysis" element={<ProductAnalysis />} />
         <Route path="returns" element={<Returns />} />
         {/* Legacy /retention path → redirect to the merged Returns page */}
         <Route path="retention" element={<Navigate to="/dashboard/returns" replace />} />
+        {/* product-analysis was promoted to a top-level menu */}
+        <Route path="product-analysis" element={<Navigate to="/product-analysis" replace />} />
       </Route>
 
-      {/* Customer Center — wraps the old /segments + /customers tabs */}
+      {/* Product Analysis — top-level menu (promoted from /dashboard sub-tab) */}
+      <Route path="/product-analysis" element={<ProductAnalysis />} />
+
+      {/* Customer Center — wraps segment + customer master tabs */}
       <Route path="/customer-center" element={<CustomerCenterLayout />}>
         <Route index element={<Navigate to="/customer-center/segments" replace />} />
         <Route path="segments"          element={<CustomerCenterSegments />} />
@@ -63,8 +68,7 @@ const App = () => (
         <Route path="segments/ads"      element={<SegmentList kind="ads" />} />
       </Route>
 
-      {/* Legacy redirects — keep old URLs working after the Customer
-       *  Center menu refactor (commit 2026-05-18). */}
+      {/* Legacy redirects */}
       <Route path="/segments"           element={<Navigate to="/customer-center/segments" replace />} />
       <Route path="/segments/rfm"       element={<Navigate to="/customer-center/segments/rfm" replace />} />
       <Route path="/segments/telesale"  element={<Navigate to="/customer-center/segments/telesale" replace />} />
@@ -73,21 +77,25 @@ const App = () => (
       <Route path="/customers/:id"      element={<CustomerDetail />} />
 
       <Route path="/enrollment" element={<Enrollment />} />
-      <Route path="/replenishment" element={<Replenishment />} />
       <Route path="/sales" element={<SalesTeam />} />
 
-      <Route path="/upload" element={<Upload />} />
+      {/* Old top-level Upload + Replenishment now live under Settings.
+       *  Keep redirects so existing links still work. */}
+      <Route path="/upload"        element={<Navigate to="/settings/upload" replace />} />
+      <Route path="/replenishment" element={<Navigate to="/settings/replenishment" replace />} />
 
       <Route path="/settings" element={<SettingsLayout />}>
         <Route index element={<Navigate to="/settings/account" replace />} />
-        <Route path="account" element={<SettingsAccount />} />
-        <Route path="team" element={<SettingsTeam />} />
-        <Route path="workspace" element={<WorkspaceSettings />} />
+        <Route path="account"       element={<SettingsAccount />} />
+        <Route path="team"          element={<SettingsTeam />} />
+        <Route path="workspace"     element={<WorkspaceSettings />} />
+        <Route path="upload"        element={<Upload />} />
+        <Route path="replenishment" element={<Replenishment />} />
         <Route path="notifications" element={<SettingsNotifications />} />
       </Route>
     </Route>
 
-    <Route path="*" element={<Navigate to="/brief" replace />} />
+    <Route path="*" element={<Navigate to="/dashboard" replace />} />
   </Routes>
 )
 

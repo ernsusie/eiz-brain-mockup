@@ -7,7 +7,6 @@ import {
   Crown,
   Ghost,
   Wallet,
-  Clock,
   AlertTriangle,
   MousePointerClick,
   ArrowRight,
@@ -40,6 +39,8 @@ import {
   toggleArray,
   useDashboardFilter,
 } from '@/lib/dashboard-filter'
+import { PageInsight } from '@/components/PageInsight'
+import { UrgentSituations } from '@/components/UrgentSituations'
 
 interface Props {
   compact?: boolean
@@ -48,8 +49,6 @@ interface Props {
 export const SalePerformance = ({ compact }: Props = {}) => {
   const ws = workspaces.current()
   const navigate = useNavigate()
-  // useDashboardFilter only works inside Dashboard's <Outlet>. In compare-view's compact mode
-  // we don't have access — provide a no-op fallback.
   let outletCtx: ReturnType<typeof useDashboardFilter> | null = null
   try {
     outletCtx = useDashboardFilter()
@@ -62,24 +61,18 @@ export const SalePerformance = ({ compact }: Props = {}) => {
 
   if (!ws) return null
   const monthly = dataset.monthly(ws.id)
+  const weekly = dataset.weekly(ws.id)
+  const hourly = dataset.hourly(ws.id)
   const allChannels = dataset.channels(ws.id)
   const allCustomers = dataset.customersWithOverlay(ws.id)
   const daily6m = dataset.daily6m(ws.id)
   const channelReturnSplit = dataset.channelReturnSplit(ws.id)
   const topRiskCustomers = dataset.topRiskCustomers(ws.id)
-  const weekly = dataset.weekly(ws.id)
-  const hourly = dataset.hourly(ws.id)
+  const urgent = dataset.urgent(ws.id)
 
-  // Apply cross-filter to customers
   const customers = filter ? applyCustomerFilter(allCustomers, filter) : allCustomers
   const filterRatio = customers.length / Math.max(1, allCustomers.length)
 
-  // Channels — show all but visually highlight filtered
-  const channels = filter && filter.channels.length > 0
-    ? allChannels.filter((c) => filter.channels.includes(c.channel))
-    : allChannels
-
-  // Filter ratio applied to revenue / orders for visual consistency
   const totalRevenue = monthly.reduce((s, m) => s + m.revenue, 0) * filterRatio
   const totalCustomers = Math.round(customers.length * 200)
   const atRisk = customers.filter((c) => c.status === 'at_risk' || c.status === 'lost').length
@@ -91,8 +84,7 @@ export const SalePerformance = ({ compact }: Props = {}) => {
     .filter((c) => c.status === 'at_risk' || c.status === 'lost')
     .reduce((s, c) => s + c.totalSpend, 0)
 
-  /* Channel-mix monthly — moved from Growth. Aggregates each channel's
-   * revenue across the 6 months for the LineChart. */
+  /* Channel-mix monthly chart data — same as before. */
   const channelMonthly = useMemo(() => {
     const seed = ws.id.length
     return monthly.map((m, i) => {
@@ -107,25 +99,37 @@ export const SalePerformance = ({ compact }: Props = {}) => {
 
   const toggleChannel = (channel: string) => {
     if (!setFilter) return
-    setFilter((prev) => ({
-      ...prev,
-      channels: toggleArray(prev.channels, channel),
-    }))
+    setFilter((prev) => ({ ...prev, channels: toggleArray(prev.channels, channel) }))
   }
   const toggleStatus = (status: string) => {
     if (!setFilter) return
-    setFilter((prev) => ({
-      ...prev,
-      status: toggleArray(prev.status, status),
-    }))
+    setFilter((prev) => ({ ...prev, status: toggleArray(prev.status, status) }))
   }
   const toggleRange = (range: '7d' | '30d' | '90d' | 'all') => {
     if (!setFilter) return
     setFilter((prev) => ({ ...prev, range }))
   }
 
+  const urgentClick = (key: string) => {
+    /* Map urgent key → customer center segment route. */
+    navigate(`/customer-center/segments?urgent=${key}`)
+  }
+
   return (
     <div className="space-y-6">
+      {/* TOP — Observations / AI insights */}
+      {!compact && (
+        <PageInsight
+          kind="info"
+          title="ข้อสังเกตจาก Performance"
+          items={[
+            <>ช่องทางหลักคือ <strong>{allChannels[0].channel}</strong> ({allChannels[0].share.toFixed(1)}%) — กระจุกมากเกินไป ควร diversify</>,
+            <>Repeat rate <strong>18.8%</strong> ยังต่ำ — ดู tab <strong>ความถี่ & ซื้อซ้ำ</strong> เพื่อวางแผน win-back</>,
+            <>มูลค่าเสี่ยง <strong>{formatTHB(totalRisk, { compact: true })}</strong> — เร่ง telesale contact ภายใน 14 วัน</>,
+          ]}
+        />
+      )}
+
       {/* Cross-filter hint */}
       {!compact && !filterActive && (
         <div className="card tone-neutral p-3 flex items-center gap-2 text-xs text-slate-600">
@@ -137,6 +141,9 @@ export const SalePerformance = ({ compact }: Props = {}) => {
           </span>
         </div>
       )}
+
+      {/* Urgent situations — restored per feedback */}
+      {!compact && <UrgentSituations data={urgent} onClickItem={urgentClick} />}
 
       {/* Health summary */}
       {!compact && (
@@ -203,12 +210,12 @@ export const SalePerformance = ({ compact }: Props = {}) => {
 
       {compact ? null : (
         <>
-          {/* Revenue trend — 6 months monthly + 6 months daily side-by-side */}
+          {/* Revenue trend — monthly + daily 6m side-by-side, weekly + hourly underneath */}
           <section className="story-section">
             <div className="story-header">
               <TrendingUp className="w-5 h-5 text-brand-600" />
               <h2 className="story-title">ยอดขาย 6 เดือนล่าสุด</h2>
-              <span className="story-sub">ดูภาพรวมรายเดือน + รายวันคู่กัน · คลิกเพื่อ filter</span>
+              <span className="story-sub">ภาพรวมรายเดือน · รายวัน · รายสัปดาห์ · ช่วงเวลาในวัน</span>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -258,6 +265,34 @@ export const SalePerformance = ({ compact }: Props = {}) => {
                       labelFormatter={(l) => `วันที่ ${l}`} />
                     <Area type="monotone" dataKey="revenue" stroke="#ff7a00" strokeWidth={2} fill="url(#daily6mGrad)" />
                   </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Weekly — restored under monthly per feedback */}
+              <div className="card tone-revenue p-5">
+                <div className="font-semibold text-sm mb-2">รายสัปดาห์ (12W)</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={weekly} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                    <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#64748b' }} />
+                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
+                    <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} formatter={(v: number) => formatTHB(v, { compact: true })} />
+                    <Bar dataKey="revenue" fill="#ff7a00" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Hourly — restored under daily per feedback */}
+              <div className="card tone-product p-5">
+                <div className="font-semibold text-sm mb-2">ยอดขายตามเวลา (24h)</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={hourly} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                    <XAxis dataKey="hour" tick={{ fontSize: 9, fill: '#64748b' }} interval={2} />
+                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v) => `${v}%`} />
+                    <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} formatter={(v: number) => `${v}%`} />
+                    <Bar dataKey="share" fill="#a855f7" radius={[3, 3, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -331,7 +366,7 @@ export const SalePerformance = ({ compact }: Props = {}) => {
             </div>
           </section>
 
-          {/* Channel Mix (moved from Growth) */}
+          {/* Channel Mix */}
           <section className="story-section">
             <div className="story-header">
               <TrendingUp className="w-5 h-5 text-emerald-600" />
@@ -354,12 +389,11 @@ export const SalePerformance = ({ compact }: Props = {}) => {
             </div>
           </section>
 
-          {/* Cancellations & Returns by Channel (NEW) */}
+          {/* Cancellations & Returns by Channel */}
           <section className="story-section">
             <div className="story-header">
               <AlertTriangle className="w-5 h-5 text-rose-600" />
               <h2 className="story-title">Cancellations &amp; Returns by Channel</h2>
-              <span className="story-sub">คลิกแถวเพื่อ filter ช่องทาง</span>
             </div>
             <div className="card tone-risk overflow-hidden">
               <div className="overflow-x-auto">
@@ -403,7 +437,7 @@ export const SalePerformance = ({ compact }: Props = {}) => {
             </div>
           </section>
 
-          {/* High-Risk Customers (NEW) */}
+          {/* High-Risk Customers */}
           <section className="story-section">
             <div className="story-header">
               <AlertCircle className="w-5 h-5 text-rose-600" />
@@ -427,7 +461,7 @@ export const SalePerformance = ({ compact }: Props = {}) => {
                         className="border-t border-rose-100/40 cursor-pointer hover:bg-white/70">
                         <td className="py-2.5 px-4 font-medium text-slate-900 flex items-center gap-2">
                           {c.name}
-                          <ArrowRight className="w-3.5 h-3.5 text-rose-400 opacity-0 group-hover:opacity-100" />
+                          <ArrowRight className="w-3.5 h-3.5 text-rose-400" />
                         </td>
                         <td className="px-3"><span className="chip bg-slate-100 text-slate-700 max-w-[180px] truncate">{c.segment}</span></td>
                         <td className="px-3"><span className={cn('chip', statusColor[c.status as keyof typeof statusColor])}>{statusLabel[c.status as keyof typeof statusLabel]}</span></td>
@@ -443,53 +477,6 @@ export const SalePerformance = ({ compact }: Props = {}) => {
               </div>
             </div>
           </section>
-
-          {/* Rhythm — weekly + hourly (moved from Growth) */}
-          <section className="story-section">
-            <div className="story-header">
-              <Clock className="w-5 h-5 text-violet-600" />
-              <h2 className="story-title">จังหวะการขาย — Rhythm</h2>
-              <span className="story-sub">12 สัปดาห์ล่าสุด + ช่วงเวลาในวันที่ลูกค้าซื้อ</span>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="card tone-revenue p-5">
-                <div className="font-semibold mb-3 text-slate-900">รายสัปดาห์ (12W)</div>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={weekly} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                    <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#64748b' }} />
-                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
-                    <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} formatter={(v: number) => formatTHB(v, { compact: true })} />
-                    <Bar dataKey="revenue" fill="#ff7a00" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="card tone-product p-5">
-                <div className="font-semibold mb-3 text-slate-900">ยอดขายตามเวลา (24h)</div>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={hourly} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                    <XAxis dataKey="hour" tick={{ fontSize: 9, fill: '#64748b' }} interval={2} />
-                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} formatter={(v: number) => `${v}%`} />
-                    <Bar dataKey="share" fill="#a855f7" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </section>
-
-          {/* Story note */}
-          <div className="card tone-customer p-5">
-            <div className="font-semibold text-emerald-800 mb-2">📝 ข้อสังเกตจาก Performance</div>
-            <ul className="text-sm text-slate-700 space-y-1.5">
-              <li>ช่องทางหลักคือ <strong>{allChannels[0].channel}</strong> ({allChannels[0].share.toFixed(1)}%) — กระจุกมากเกินไป ควร diversify</li>
-              <li>Repeat rate <strong>18.8%</strong> ยังต่ำ — ดูที่ tab <strong>ความถี่ & ซื้อซ้ำ</strong> เพื่อวางแผน win-back</li>
-              <li>มูลค่าเสี่ยง <strong>{formatTHB(totalRisk, { compact: true })}</strong> — เร่ง telesale contact ภายใน 14 วัน</li>
-            </ul>
-          </div>
         </>
       )}
     </div>

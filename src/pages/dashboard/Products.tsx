@@ -11,9 +11,11 @@ import {
   YAxis,
 } from 'recharts'
 import { Package, Tag } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { workspaces } from '@/lib/workspaces'
 import { dataset } from '@/lib/mock-data'
 import { cn, formatNumber, formatTHB } from '@/lib/utils'
+import { PageInsight } from '@/components/PageInsight'
 
 const PALETTE = ['#ff7a00', '#ff5722', '#a855f7', '#ec4899', '#06b6d4', '#10b981', '#f59e0b', '#64748b']
 
@@ -26,14 +28,35 @@ const PALETTE = ['#ff7a00', '#ff5722', '#a855f7', '#ec4899', '#06b6d4', '#10b981
  */
 export const Products = () => {
   const ws = workspaces.current()
+  const navigate = useNavigate()
   if (!ws) return null
   const products = dataset.products(ws.id)
   const top10 = products.slice(0, 10)
   const totalRevenue = products.reduce((s, p) => s + p.revenue, 0)
   const topShare = (top10[0].revenue / totalRevenue) * 100
 
+  /* Any chart click on Products jumps to the dedicated Product
+   * Analysis page (top-level menu since the 2026-05-18 round). */
+  const drillIn = (productId?: string) => {
+    navigate(productId ? `/product-analysis?product=${productId}` : '/product-analysis')
+  }
+
   return (
     <div className="space-y-6">
+      <PageInsight
+        kind="info"
+        title="ข้อสังเกตจาก Products"
+        items={[
+          <>
+            Top product <strong>{top10[0].name}</strong> ครองส่วนแบ่ง{' '}
+            <strong>{topShare.toFixed(1)}%</strong> ของรายได้รวม — กระจุกตัวสูง
+          </>,
+          <>
+            สินค้า return-rate {'>'}5% มี <strong>{top10.filter((p) => p.returnRate > 5).length}</strong> SKU — เปิด Product Analysis เพื่อดูรายการ
+          </>,
+        ]}
+      />
+
       <section className="story-section">
         <div className="story-header">
           <Tag className="w-5 h-5 text-brand-600" />
@@ -66,7 +89,12 @@ export const Products = () => {
                   contentStyle={{ borderRadius: 12, fontSize: 12 }}
                   formatter={(v: number) => formatTHB(v, { compact: true })}
                 />
-                <Bar dataKey="revenue" radius={[0, 6, 6, 0]}>
+                <Bar
+                  dataKey="revenue"
+                  radius={[0, 6, 6, 0]}
+                  style={{ cursor: 'pointer' }}
+                  onClick={(d: any) => drillIn(d?.payload?.id)}
+                >
                   {top10.map((_, i) => (
                     <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
                   ))}
@@ -86,6 +114,8 @@ export const Products = () => {
                   innerRadius={50}
                   outerRadius={95}
                   paddingAngle={2}
+                  onClick={(d: any) => drillIn(d?.id)}
+                  style={{ cursor: 'pointer' }}
                 >
                   {top10.map((_, i) => (
                     <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
@@ -127,7 +157,11 @@ export const Products = () => {
               </thead>
               <tbody>
                 {top10.map((p) => (
-                  <tr key={p.id} className="border-t border-violet-100/40 hover:bg-white/50">
+                  <tr
+                    key={p.id}
+                    onClick={() => drillIn(p.id)}
+                    className="border-t border-violet-100/40 hover:bg-white/50 cursor-pointer"
+                  >
                     <td className="px-4 py-2.5 max-w-xs truncate">{p.name}</td>
                     <td className="px-3 py-2.5 text-right font-semibold text-brand-700">
                       {formatTHB(p.revenue, { compact: true })}
