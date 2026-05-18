@@ -1,59 +1,73 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  AlertTriangle,
-  ArrowRight,
-  BarChart3,
-  Calendar,
-  Crown,
-  Heart,
-  Repeat,
-  Sparkles,
-  TrendingUp,
-  Users,
-} from 'lucide-react'
+  ResponsiveContainer,
+  Tooltip,
+  Treemap,
+} from 'recharts'
+import { LayoutGrid, Table as TableIcon, MoveRight } from 'lucide-react'
 import { workspaces } from '@/lib/workspaces'
 import { dataset } from '@/lib/mock-data'
 import type { Customer } from '@/types'
 import { cn, formatNumber, formatTHB } from '@/lib/utils'
 
-/**
- * Dashboard sub-page · วิเคราะห์กลุ่มลูกค้า
- *
- * Compact RFM overview — shows the 11 behavioral segments as
- * clickable tiles. Clicking a tile navigates to the customer center
- * (/segments) with the segment pre-selected so the user can drill
- * into the actual roster. The full RFM methodology + heatmap lives
- * on /segments/rfm — we link to it from the page header.
- */
-
 type RfmCell = { r: number; f: number; m: number }
 
-interface SegmentSpec {
+/** 6 colour bands matching the legend in the attached design. */
+const BAND_COLORS = {
+  champion:  '#a855f7',  /* purple — ลูกค้าชั้นเยี่ยม */
+  good:      '#10b981',  /* emerald — ดี */
+  growing:   '#fbbf24',  /* yellow — เติบโต / ใหม่ */
+  alert:     '#ec4899',  /* pink — เสี่ยง / แจ้งเตือน VIP */
+  watch:     '#f97316',  /* orange — เฝ้าระวัง / เริ่มห่าง */
+  lost:      '#fecaca',  /* light red — หายไป */
+  inactive:  '#cbd5e1',  /* slate — ไม่ใช้งาน */
+  followup:  '#06b6d4',  /* cyan — ดูแล */
+} as const
+
+type Band = keyof typeof BAND_COLORS
+
+interface SegSpec {
   key:    string
   label:  string
   rRange: [number, number]
   fRange: [number, number]
   mRange: [number, number]
-  tone:   string
-  ring:   string
-  color:  string
-  icon:   any
-  thInsight: string
+  band:   Band
 }
 
-const SEGMENTS: SegmentSpec[] = [
-  { key: 'champions',     label: 'Champions',         rRange: [4,5], fRange: [4,5], mRange: [4,5], tone: 'tone-customer',  ring: 'border-emerald-300', color: 'text-emerald-700', icon: Crown,         thInsight: 'ลูกค้าทอง — ใช้สร้าง referral + early access' },
-  { key: 'loyal',         label: 'Loyal',             rRange: [2,5], fRange: [3,5], mRange: [3,5], tone: 'tone-geo',       ring: 'border-sky-300',     color: 'text-sky-700',     icon: Heart,         thInsight: 'ลูกค้าประจำ — ทำ upsell ขึ้น champion' },
-  { key: 'potential',     label: 'Potential Loyal',   rRange: [3,5], fRange: [1,3], mRange: [1,3], tone: 'tone-product',   ring: 'border-violet-300',  color: 'text-violet-700',  icon: Sparkles,      thInsight: 'มีศักยภาพ — cross-sell แบบ educational' },
-  { key: 'new',           label: 'New',               rRange: [4,5], fRange: [1,1], mRange: [1,3], tone: 'tone-geo',       ring: 'border-blue-300',    color: 'text-blue-700',    icon: Users,         thInsight: 'ลูกค้าใหม่ — onboarding 14 วันแรก' },
-  { key: 'promising',     label: 'Promising',         rRange: [3,4], fRange: [1,1], mRange: [1,1], tone: 'tone-geo',       ring: 'border-cyan-300',    color: 'text-cyan-700',    icon: TrendingUp,    thInsight: 'เพิ่งซื้อแต่ยอดต่ำ — สร้าง trust' },
-  { key: 'need_attention',label: 'Need Attention',    rRange: [2,3], fRange: [2,3], mRange: [2,3], tone: 'tone-risk',      ring: 'border-amber-300',   color: 'text-amber-700',   icon: AlertTriangle, thInsight: 'เริ่มห่างเหิน — re-engage personalised' },
-  { key: 'about_to_sleep',label: 'About to Sleep',    rRange: [2,3], fRange: [1,2], mRange: [1,2], tone: 'tone-risk',      ring: 'border-orange-300',  color: 'text-orange-700',  icon: Calendar,      thInsight: 'กำลังจะหลับ — limited-time 20% off' },
-  { key: 'at_risk',       label: 'At Risk',           rRange: [1,2], fRange: [3,5], mRange: [3,5], tone: 'tone-retention', ring: 'border-rose-300',    color: 'text-rose-700',    icon: AlertTriangle, thInsight: 'อันตราย — telesale โทรใน 7 วัน' },
-  { key: 'cant_lose',     label: "Can't Lose",        rRange: [1,1], fRange: [4,5], mRange: [4,5], tone: 'tone-retention', ring: 'border-red-300',     color: 'text-red-700',     icon: Crown,         thInsight: 'ยอมเสียไม่ได้ — best-ever offer 30-40%' },
-  { key: 'hibernating',   label: 'Hibernating',       rRange: [1,2], fRange: [1,2], mRange: [1,2], tone: 'tone-neutral',   ring: 'border-slate-300',   color: 'text-slate-600',   icon: Repeat,        thInsight: 'หลับลึก — re-engage 2 ครั้ง แล้ว archive' },
-  { key: 'lost',          label: 'Lost',              rRange: [1,1], fRange: [1,1], mRange: [1,1], tone: 'tone-neutral',   ring: 'border-slate-200',   color: 'text-slate-500',   icon: AlertTriangle, thInsight: 'หายขาด — exclude จาก paid ads' },
+/* 19 behavioural segments mirroring the attached design.
+ * The label text follows the Thai phrasing in the image. */
+const SEGS: SegSpec[] = [
+  { key: 'champion_loyal',     label: 'ลูกค้าชั้นเยี่ยมที่ยังอยู่กับเรา', rRange: [4,5], fRange: [4,5], mRange: [4,5], band: 'champion' },
+  { key: 'loyal_drifting',     label: 'ลูกค้าชั้นเยี่ยมที่เริ่มห่างไป',   rRange: [3,4], fRange: [4,5], mRange: [4,5], band: 'champion' },
+  { key: 'big_leaving',        label: 'ลูกค้าใหญ่ที่กำลังจะหายไป',     rRange: [2,3], fRange: [3,5], mRange: [4,5], band: 'alert' },
+  { key: 'big_lost',           label: 'ลูกค้าตัวที่เลิกซื้อไปแล้ว',     rRange: [1,2], fRange: [3,5], mRange: [4,5], band: 'alert' },
+  { key: 'dead_first_big',     label: '(ตายแล้ว) ซื้อครั้งแรกง่ายหนัก',  rRange: [1,1], fRange: [1,1], mRange: [4,5], band: 'alert' },
+  { key: 'low_freq_unsold',    label: 'กลุ่มลูกค้าที่ไม่ค่อยขาย',         rRange: [2,3], fRange: [2,3], mRange: [2,3], band: 'watch' },
+  { key: 'cooling_first_big',  label: '(เริ่มห่าง) ซื้อครั้งแรกง่ายหนัก', rRange: [2,3], fRange: [1,1], mRange: [4,5], band: 'growing' },
+  { key: 'mid_value_dead',     label: 'ลูกค้าที่ตายแล้วที่มียอดปานกลาง-สูง', rRange: [1,2], fRange: [1,2], mRange: [3,4], band: 'alert' },
+  { key: 'potential_loyal',    label: 'มีโอกาสเป็นลูกค้าชั้นเยี่ยม',     rRange: [4,5], fRange: [2,3], mRange: [3,4], band: 'followup' },
+  { key: 'warmest_first_big',  label: '(เฝ้าดู) ซื้อครั้งแรกง่ายหนัก',    rRange: [4,5], fRange: [1,1], mRange: [4,5], band: 'followup' },
+  { key: 'easy_above_avg',     label: '(ดูแล) ซื้อครั้งแรกสูงกว่าปกติ',   rRange: [3,5], fRange: [1,1], mRange: [3,4], band: 'followup' },
+  { key: 'first_aging',        label: 'ซื้อครั้งแรก — ห่างนาน',          rRange: [1,2], fRange: [1,1], mRange: [2,3], band: 'growing' },
+  { key: 'first_cooling',      label: 'ซื้อครั้งแรก — เริ่มห่าง',         rRange: [2,3], fRange: [1,1], mRange: [2,3], band: 'followup' },
+  { key: 'cust_lost',          label: 'ลูกค้าเลิกซื้อแล้ว',               rRange: [1,2], fRange: [2,3], mRange: [1,2], band: 'lost' },
+  { key: 'low_value_normal',   label: '(ดูแล) ซื้อครั้งแรกง่ายปกติ',      rRange: [3,5], fRange: [1,1], mRange: [1,2], band: 'followup' },
+  { key: 'lost_cheap',         label: 'ตาย (ซื้อน้อย)',                  rRange: [1,1], fRange: [1,1], mRange: [1,1], band: 'lost' },
+  { key: 'aging_60_120',       label: 'ยอดต่ำกว่า 1000 ซื้อครั้งแรก 60-120 วัน', rRange: [2,3], fRange: [1,1], mRange: [1,1], band: 'watch' },
+  { key: 'rare_small',         label: 'ซื้อเรื่อยจัดน้อยๆ',               rRange: [2,3], fRange: [2,3], mRange: [1,2], band: 'growing' },
+  { key: 'first_small',        label: '(ดูแล) ซื้อครั้งแรกง่ายน้อย',      rRange: [4,5], fRange: [1,1], mRange: [1,1], band: 'followup' },
+  { key: 'never',              label: 'ทดลอง/ดอง/ยังไม่มีการสั่งซื้อ',    rRange: [1,1], fRange: [1,1], mRange: [1,1], band: 'inactive' },
+]
+
+const LEGEND_GROUPS = [
+  { band: 'champion' as const, label: 'ลูกค้าชั้นเยี่ยม / ดี' },
+  { band: 'good' as const,     label: 'ดี' },
+  { band: 'growing' as const,  label: 'เติบโต / ใหม่' },
+  { band: 'alert' as const,    label: 'เสี่ยง / แจ้งเตือน VIP' },
+  { band: 'watch' as const,    label: 'เฝ้าระวัง / เริ่มห่าง' },
+  { band: 'lost' as const,     label: 'หายไป / ไม่ใช้งาน' },
 ]
 
 const scoreCustomers = (customers: Customer[]): (Customer & RfmCell)[] => {
@@ -79,149 +93,218 @@ const scoreCustomers = (customers: Customer[]): (Customer & RfmCell)[] => {
   }))
 }
 
-const matches = (c: Customer & RfmCell, s: SegmentSpec): boolean =>
+const matches = (c: Customer & RfmCell, s: SegSpec): boolean =>
   c.r >= s.rRange[0] && c.r <= s.rRange[1] &&
   c.f >= s.fRange[0] && c.f <= s.fRange[1] &&
   c.m >= s.mRange[0] && c.m <= s.mRange[1]
 
+/**
+ * Dashboard sub-page · วิเคราะห์กลุ่มลูกค้า (RFM treemap)
+ *
+ * Rebuilt per attached design — colour-banded segments sized by
+ * customer count. Click any tile to jump into the Customer Center
+ * segment view with the segment pre-selected.
+ */
 export const SegmentAnalysis = () => {
   const ws = workspaces.current()
   const navigate = useNavigate()
+  const [view, setView] = useState<'tree' | 'table'>('tree')
   if (!ws) return null
 
   const customers = dataset.customersWithOverlay(ws.id)
   const scored = useMemo(() => scoreCustomers(customers), [customers])
-
   const buckets = useMemo(
     () =>
-      SEGMENTS.map((seg) => {
+      SEGS.map((seg) => {
         const list = scored.filter((c) => matches(c, seg))
         const value = list.reduce((s, c) => s + c.totalSpend, 0)
         return { seg, count: list.length, value }
-      }),
+      })
+        .filter((b) => b.count > 0)
+        .sort((a, b) => b.count - a.count),
     [scored],
   )
 
-  const totalCustomers = scored.length || 1
-  const totalValue = scored.reduce((s, c) => s + c.totalSpend, 0)
-  const critical = buckets
-    .filter((b) => ['at_risk', 'cant_lose', 'about_to_sleep'].includes(b.seg.key))
-    .reduce((acc, b) => ({ count: acc.count + b.count, value: acc.value + b.value }), { count: 0, value: 0 })
+  const total = scored.length || 1
+  const healthy = buckets
+    .filter((b) => b.seg.band === 'champion' || b.seg.band === 'good' || b.seg.band === 'followup')
+    .reduce((s, b) => s + b.count, 0)
+  const healthyPct = (healthy / total) * 100
+  const biggest = buckets[0]
 
-  const handleSegmentClick = (segKey: string) => {
-    /* Customer center filters by Thai segment names (marketing strategy
-     *  segments) — for RFM keys we want the dedicated RFM analysis view
-     *  with the segment auto-opened. */
-    navigate(`/segments/rfm?seg=${segKey}`)
+  const treemapData = buckets.map((b) => ({
+    name: b.seg.label,
+    size: b.count,
+    fill: BAND_COLORS[b.seg.band],
+    seg: b.seg,
+    pct: (b.count / total) * 100,
+    value: b.value,
+  }))
+
+  const handleClick = (segKey: string) => {
+    navigate(`/customer-center/segments?seg=${segKey}`)
   }
 
   return (
     <div className="space-y-5">
-      <section className="story-section">
-        <div className="story-header">
-          <BarChart3 className="w-5 h-5 text-brand-600" />
-          <h2 className="story-title">วิเคราะห์กลุ่มลูกค้า — RFM Overview</h2>
-          <span className="story-sub">11 segments · คลิกการ์ดเพื่อเปิดรายชื่อใน Customer Center</span>
-        </div>
+      <div className="card bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-center gap-3 text-sm">
+        <span className="text-emerald-700">🟢</span>
+        <span className="text-slate-700">
+          ลูกค้าสุขภาพดี <strong>{healthyPct.toFixed(0)}%</strong> ({formatNumber(healthy)} ราย) · กลุ่มใหญ่สุด:{' '}
+          <strong>{biggest?.seg.label ?? '—'}</strong>{' '}
+          ({formatNumber(biggest?.count ?? 0)} ราย)
+        </span>
+      </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Stat tone="tone-customer" label="Total Customers" value={formatNumber(totalCustomers, { compact: true })} sub="scored ทั้งหมด" />
-          <Stat tone="tone-revenue"  label="Lifetime Value"  value={formatTHB(totalValue, { compact: true })} sub="รวมยอดซื้อ" />
-          <Stat tone="tone-product"  label="Champions"        value={formatNumber(buckets.find((b) => b.seg.key === 'champions')?.count ?? 0)} sub="ลูกค้าระดับสุดยอด" />
-          <Stat tone="tone-risk"     label="กลุ่มเสี่ยงรวม"   value={formatNumber(critical.count)} sub={`${formatTHB(critical.value, { compact: true })} ที่เสี่ยง`} />
-        </div>
-      </section>
+      <div className="card bg-violet-50 border border-violet-200 px-4 py-3 flex items-center gap-2 text-sm">
+        <span>✨ Casper กำลังวิเคราะห์หน้านี้…</span>
+      </div>
 
-      <section className="story-section">
-        <div className="story-header">
-          <Users className="w-5 h-5 text-emerald-600" />
-          <h3 className="story-title">11 Behavioral Segments</h3>
-          <span className="story-sub">English labels · Thai action — คลิก → /segments/rfm</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {buckets.map(({ seg, count, value }) => {
-            const Icon = seg.icon
-            const pct = (count / totalCustomers) * 100
-            return (
+      <section className="card p-5">
+        <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+          <div>
+            <h3 className="font-bold text-slate-900">วิเคราะห์กลุ่มลูกค้า</h3>
+            <p className="text-xs text-slate-500">แผนที่กลุ่มลูกค้า RFM · คลิก tile เพื่อดูรายชื่อใน Customer Center</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-xl border border-slate-200 p-1 bg-slate-50">
               <button
-                key={seg.key}
-                onClick={() => handleSegmentClick(seg.key)}
+                onClick={() => setView('tree')}
                 className={cn(
-                  'card text-left p-4 border-2 transition-all hover:-translate-y-0.5 hover:shadow-md group',
-                  seg.tone,
-                  seg.ring,
+                  'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold',
+                  view === 'tree' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900',
                 )}
               >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className={`w-9 h-9 rounded-xl bg-white/70 flex items-center justify-center ${seg.color} shrink-0`}>
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <div className="font-bold text-slate-900 leading-tight truncate">{seg.label}</div>
-                  </div>
-                  <div className={`text-xs font-bold ${seg.color} whitespace-nowrap`}>{pct.toFixed(1)}%</div>
-                </div>
-                <div className="text-[11px] text-slate-600 line-clamp-2 mb-2 min-h-[28px]">
-                  {seg.thInsight}
-                </div>
-                <div className="flex justify-between items-end pt-2 border-t border-white/60">
-                  <div>
-                    <div className={`text-lg font-bold ${seg.color}`}>{formatNumber(count)}</div>
-                    <div className="text-[10px] text-slate-500">customers</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-slate-900">{formatTHB(value, { compact: true })}</div>
-                    <div className="text-[10px] text-slate-500 flex items-center gap-1 justify-end">
-                      LTV
-                      <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </div>
-                </div>
+                <LayoutGrid className="w-3.5 h-3.5" /> แผนที่กลุ่ม
               </button>
-            )
-          })}
-        </div>
-      </section>
-
-      <div className="card tone-customer p-5">
-        <div className="flex items-start gap-3">
-          <Sparkles className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-          <div>
-            <div className="font-semibold text-emerald-800 mb-1">💡 ใช้ Segment Analysis อย่างไร</div>
-            <ul className="text-sm text-slate-700 space-y-1.5">
-              <li>• <strong>Champions + Loyal:</strong> ขอ review, สร้าง referral, ทดสอบสินค้าใหม่ก่อนเปิดตัว</li>
-              <li>• <strong>At Risk + Can&apos;t Lose:</strong> ให้ telesale โทรภายใน 7 วัน — มูลค่าสูงสุดในแต่ละกลุ่ม</li>
-              <li>• <strong>New + Promising:</strong> onboarding 14 วันแรก + coupon ครั้งที่ 2</li>
-              <li>• <strong>Hibernating + Lost:</strong> ลด ad spend, exclude จาก paid audience</li>
-            </ul>
-            <button
-              onClick={() => navigate('/segments/rfm')}
-              className="btn-primary mt-3 text-xs"
-            >
-              ดู RFM Heatmap + Methodology เต็ม →
-            </button>
+              <button
+                onClick={() => setView('table')}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold',
+                  view === 'table' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900',
+                )}
+              >
+                <TableIcon className="w-3.5 h-3.5" /> ตาราง
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+
+        <div className="flex items-center justify-between mb-2 text-[11px] text-slate-500">
+          <span>นานแล้ว →</span>
+          <span className="font-bold text-slate-700">แผนที่กลุ่มลูกค้า RFM</span>
+          <span>← เพิ่งซื้อ</span>
+        </div>
+
+        {view === 'tree' ? (
+          <ResponsiveContainer width="100%" height={420}>
+            <Treemap
+              data={treemapData as any}
+              dataKey="size"
+              stroke="#fff"
+              fill="#a855f7"
+              content={((p: any) => <CustomTile {...p} onClick={handleClick} />) as any}
+            >
+              <Tooltip
+                contentStyle={{ borderRadius: 12, fontSize: 12 }}
+                content={(p: any) => {
+                  if (!p.active || !p.payload?.[0]) return null
+                  const d = p.payload[0].payload
+                  return (
+                    <div className="bg-white rounded-xl shadow-md p-2 text-xs border border-slate-200">
+                      <div className="font-semibold text-slate-900">{d.name}</div>
+                      <div className="text-slate-600">{formatNumber(d.size)} ราย · {d.pct.toFixed(1)}%</div>
+                      <div className="text-slate-500">LTV: {formatTHB(d.value, { compact: true })}</div>
+                    </div>
+                  )
+                }}
+              />
+            </Treemap>
+          </ResponsiveContainer>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+                <tr>
+                  <th className="text-left py-2 px-3 font-semibold">Segment</th>
+                  <th className="text-right py-2 px-3 font-semibold">Customers</th>
+                  <th className="text-right py-2 px-3 font-semibold">%</th>
+                  <th className="text-right py-2 px-3 font-semibold">LTV</th>
+                  <th className="px-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {buckets.map((b) => (
+                  <tr key={b.seg.key} className="hover:bg-slate-50">
+                    <td className="py-2 px-3 font-medium">
+                      <span className="inline-flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: BAND_COLORS[b.seg.band] }} />
+                        {b.seg.label}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-right tabular-nums">{formatNumber(b.count)}</td>
+                    <td className="py-2 px-3 text-right text-slate-500">{((b.count / total) * 100).toFixed(2)}%</td>
+                    <td className="py-2 px-3 text-right tabular-nums font-semibold text-brand-700">{formatTHB(b.value, { compact: true })}</td>
+                    <td className="py-2 px-3 text-right">
+                      <button onClick={() => handleClick(b.seg.key)}
+                        className="text-xs text-brand-700 hover:underline inline-flex items-center gap-1">
+                        ดูรายชื่อ <MoveRight className="w-3 h-3" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mt-2 text-[11px] text-slate-500">
+          <span>← นาน (R ต่ำ)</span>
+          <span>ความถี่ซื้อล่าสุด</span>
+          <span>เร็ว (R สูง) →</span>
+        </div>
+
+        <div className="flex flex-wrap gap-3 mt-4 text-[11px] text-slate-600 justify-center border-t border-slate-100 pt-3">
+          {LEGEND_GROUPS.map((g) => (
+            <span key={g.band} className="inline-flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-sm" style={{ background: BAND_COLORS[g.band] }} />
+              {g.label}
+            </span>
+          ))}
+        </div>
+      </section>
     </div>
   )
 }
 
-const Stat = ({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string
-  value: string
-  sub:   string
-  tone:  string
-}) => (
-  <div className={`card p-4 ${tone}`}>
-    <div className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">{label}</div>
-    <div className="text-2xl font-bold text-slate-900 mt-1">{value}</div>
-    <div className="text-[11px] text-slate-500 mt-0.5">{sub}</div>
-  </div>
-)
+const CustomTile = (p: any) => {
+  const { x, y, width, height, payload, name, fill } = p
+  /* Recharts can pass values via either `payload` or top-level keys
+   * depending on version. */
+  const d = payload ?? { name }
+  const showLabel = width > 60 && height > 40
+  const showCount = width > 90 && height > 50
+  return (
+    <g style={{ cursor: 'pointer' }} onClick={() => p.onClick?.(d.seg?.key)}>
+      <rect x={x} y={y} width={width} height={height}
+        style={{ fill: fill ?? d.fill, stroke: '#fff', strokeWidth: 2 }} />
+      {showLabel && (
+        <text x={x + 6} y={y + 14} fontSize={10} fill="#0f172a" fontWeight={500}>
+          {(d.name || '').length > Math.floor(width / 6)
+            ? (d.name || '').slice(0, Math.floor(width / 6) - 1) + '…'
+            : d.name}
+        </text>
+      )}
+      {showCount && (
+        <>
+          <text x={x + 6} y={y + height - 22} fontSize={12} fill="#0f172a" fontWeight={700}>
+            {formatNumber(d.size)}
+          </text>
+          <text x={x + 6} y={y + height - 8} fontSize={9} fill="#475569">
+            {(d.pct ?? 0).toFixed(1)}%
+          </text>
+        </>
+      )}
+    </g>
+  )
+}

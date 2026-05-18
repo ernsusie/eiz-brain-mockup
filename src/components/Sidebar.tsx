@@ -2,7 +2,6 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users,
-  UserCircle,
   ClipboardList,
   Trophy,
   ChevronLeft,
@@ -18,16 +17,20 @@ import { cn } from '@/lib/utils'
 import { workspaces } from '@/lib/workspaces'
 
 const NAV = [
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: 'ภาพรวมยอดขาย' },
   {
     to: '/brief',
     label: 'สรุปอัจฉริยะ',
     icon: Sparkles,
-    hint: 'AI-summary · เริ่มที่นี่',
+    hint: 'AI-summary',
     featured: true,
   },
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: 'ภาพรวมยอดขาย' },
-  { to: '/segments', label: 'Customer Segments', icon: Users, hint: 'แบ่งกลุ่มลูกค้า' },
-  { to: '/customers', label: 'ลูกค้าทั้งหมด', icon: UserCircle, hint: 'รายชื่อ + AI' },
+  {
+    to: '/customer-center',
+    label: 'Customer Center',
+    icon: Users,
+    hint: 'Segment + ลูกค้าทั้งหมด',
+  },
   {
     to: '/enrollment',
     label: 'Enrollment',

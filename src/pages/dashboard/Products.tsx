@@ -10,14 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { useNavigate } from 'react-router-dom'
-import {
-  Package,
-  AlertTriangle,
-  Tag,
-  Link as LinkIcon,
-  ArrowRight,
-} from 'lucide-react'
+import { Package, Tag } from 'lucide-react'
 import { workspaces } from '@/lib/workspaces'
 import { dataset } from '@/lib/mock-data'
 import { cn, formatNumber, formatTHB } from '@/lib/utils'
@@ -25,78 +18,31 @@ import { cn, formatNumber, formatTHB } from '@/lib/utils'
 const PALETTE = ['#ff7a00', '#ff5722', '#a855f7', '#ec4899', '#06b6d4', '#10b981', '#f59e0b', '#64748b']
 
 /**
- * Dashboard sub-page · ภาพรวมสินค้า (Products overview)
+ * Dashboard sub-page · Products — slim view.
  *
- * Slimmed to overview only — SKU stats, top sellers, and the product
- * health table. The deeper analytics (Top 20 single-buy table,
- * co-purchase matrix, high-return alert) live on the dedicated
- * "Product Analysis" sub-tab.
+ * Three charts only: Top 10 by revenue, revenue share pie, product
+ * health table for the top 10. Deeper analysis (top 20, co-purchase
+ * matrix, high-return alerts) lives on /dashboard/product-analysis.
  */
 export const Products = () => {
   const ws = workspaces.current()
-  const navigate = useNavigate()
   if (!ws) return null
   const products = dataset.products(ws.id)
   const top10 = products.slice(0, 10)
   const totalRevenue = products.reduce((s, p) => s + p.revenue, 0)
-  const totalUnits = products.reduce((s, p) => s + p.units, 0)
-  const avgAsp = Math.round(products.reduce((s, p) => s + p.asp, 0) / products.length)
   const topShare = (top10[0].revenue / totalRevenue) * 100
 
   return (
     <div className="space-y-6">
-      {/* Chapter 1 — Product overview */}
-      <section className="story-section">
-        <div className="story-header">
-          <Package className="w-5 h-5 text-violet-600" />
-          <h2 className="story-title">ภาพรวมสินค้า — Product Overview</h2>
-          <span className="story-sub">รวม SKU, สินค้าขายดี และส่วนแบ่งรายได้</span>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <Mini icon={Package} tone="product" label="Active SKU" value="20" sub="ขายอยู่จริง" />
-          <Mini
-            icon={Tag}
-            tone="product"
-            label="Total Units"
-            value={formatNumber(totalUnits, { compact: true })}
-            sub="ขายไปทั้งหมด"
-          />
-          <Mini
-            icon={Tag}
-            tone="revenue"
-            label="Avg Selling Price"
-            value={formatTHB(avgAsp)}
-            sub="เฉลี่ยต่อชิ้น"
-          />
-          <Mini
-            icon={Package}
-            tone="revenue"
-            label="Top Product Share"
-            value={`${topShare.toFixed(1)}%`}
-            sub={top10[0].name.slice(0, 18) + '...'}
-          />
-          <Mini
-            icon={AlertTriangle}
-            tone="risk"
-            label="Inactive 60d"
-            value="403"
-            sub="ไม่ขายใน 60 วัน"
-          />
-        </div>
-      </section>
-
-      {/* Chapter 2 — What sells */}
       <section className="story-section">
         <div className="story-header">
           <Tag className="w-5 h-5 text-brand-600" />
-          <h2 className="story-title">ขายดีที่สุด — Top Sellers</h2>
-          <span className="story-sub">เรียงตามรายได้ · 80% มาจากสินค้า top 10</span>
+          <h2 className="story-title">Top 10 Products by Revenue</h2>
+          <span className="story-sub">เรียงตามรายได้รวม</span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="card tone-revenue p-5 lg:col-span-2">
-            <div className="font-semibold mb-3">Top 10 Products by Revenue</div>
             <ResponsiveContainer width="100%" height={320}>
               <BarChart
                 data={top10}
@@ -158,11 +104,10 @@ export const Products = () => {
         </div>
       </section>
 
-      {/* Chapter 3 — Product health table */}
       <section className="story-section">
         <div className="story-header">
           <Package className="w-5 h-5 text-violet-600" />
-          <h2 className="story-title">Product Health</h2>
+          <h2 className="story-title">Product Health (Top 10)</h2>
           <span className="story-sub">รายได้ · ลูกค้า · ความถี่ · อัตราคืน — ทุกอย่างในที่เดียว</span>
         </div>
 
@@ -212,58 +157,6 @@ export const Products = () => {
           </div>
         </div>
       </section>
-
-      {/* CTA to Product Analysis */}
-      <button
-        onClick={() => navigate('/dashboard/product-analysis')}
-        className="card tone-product p-5 flex items-center gap-3 w-full text-left hover:-translate-y-0.5 hover:shadow-md transition-all group"
-      >
-        <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
-          <LinkIcon className="w-5 h-5" />
-        </div>
-        <div className="flex-1">
-          <div className="font-bold text-slate-900">เจาะลึกสินค้า — Product Analysis</div>
-          <div className="text-sm text-slate-600">
-            Top 20 popular · เมทริกซ์สินค้าที่ซื้อร่วมกัน (bundle candidates) · สินค้าคืนสูง
-          </div>
-        </div>
-        <ArrowRight className="w-5 h-5 text-violet-500 group-hover:translate-x-1 transition-transform" />
-      </button>
-    </div>
-  )
-}
-
-const Mini = ({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  icon: any
-  label: string
-  value: string
-  sub: string
-  tone: 'revenue' | 'product' | 'risk' | 'customer'
-}) => {
-  const tones: Record<string, string> = {
-    revenue: 'bg-brand-100 text-brand-700',
-    product: 'bg-violet-100 text-violet-700',
-    risk: 'bg-amber-100 text-amber-700',
-    customer: 'bg-emerald-100 text-emerald-700',
-  }
-  return (
-    <div className={`card p-3 tone-${tone}`}>
-      <div className="flex items-start gap-2">
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tones[tone]}`}>
-          <Icon className="w-4 h-4" />
-        </div>
-        <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">{label}</div>
-          <div className="font-bold text-sm text-slate-900 truncate">{value}</div>
-          <div className="text-[10px] text-slate-500 truncate">{sub}</div>
-        </div>
-      </div>
     </div>
   )
 }

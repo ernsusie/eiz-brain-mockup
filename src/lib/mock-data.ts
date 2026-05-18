@@ -349,6 +349,315 @@ export const generateFrequencyAnalysis = (workspaceId: string) => {
   return { buckets, gaps, repeatTrend }
 }
 
+/* 6-month daily revenue / customers / orders / returns — feeds the
+ * Sale Performance daily-trend chart that sits next to the monthly
+ * bar chart. Anchored to today() so the last bar is "today". */
+export const generateDaily6Month = (workspaceId: string) => {
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 15)
+  const today = new Date()
+  const days = 180
+  return range(days).map((i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - (days - 1 - i))
+    const dow = d.getDay()
+    const weekendBump = dow === 0 || dow === 6 ? 1.15 : 1
+    return {
+      date: d.toISOString().slice(0, 10),
+      label: d.toISOString().slice(0, 10),
+      revenue:   Math.round((130 + rand() * 80) * 1000 * weekendBump),
+      customers: Math.floor((85 + rand() * 60) * (dow === 0 || dow === 6 ? 0.85 : 1.05)),
+      orders:    Math.floor((170 + rand() * 90) * weekendBump),
+      returned:  Math.round((2 + rand() * 4) * 1000),
+    }
+  })
+}
+
+/* Channel × completion buckets — Sale Performance Cancellations &
+ * Returns by Channel table needs `completed / cancelled / returned /
+ * rate`. Derived from channels generator. */
+export const generateChannelReturnSplit = (workspaceId: string) => {
+  const channels = generateChannelStats(workspaceId)
+  return channels.map((c) => {
+    const cancelled = Math.floor(c.orders * c.cancelRate * 0.01)
+    const returned = Math.floor(c.orders * 0.018)        // ~1.8% returns
+    const completed = c.orders - cancelled - returned
+    const rate = ((cancelled + returned) / Math.max(1, c.orders)) * 100
+    return {
+      channel: c.channel,
+      color: c.color,
+      completed,
+      cancelled,
+      returned,
+      rate,
+      revenue: c.revenue,
+    }
+  })
+}
+
+/* Top-10 customers ranked by riskScore — drives Sale Performance's
+ *  "High-Risk Customers" mini-table. */
+export const generateTopRiskCustomers = (workspaceId: string) => {
+  const all = generateCustomers(workspaceId)
+  return [...all]
+    .sort((a, b) => b.riskScore - a.riskScore)
+    .slice(0, 10)
+    .map((c) => ({
+      id:     c.id,
+      name:   c.name,
+      segment:c.segmentMarketing,
+      status: c.status,
+      risk:   Math.round(c.riskScore),
+      spend:  c.totalSpend,
+    }))
+}
+
+/* YTD growth — week-over-week / month-over-month / year-over-year
+ *  rollups, plus a breakdown by dimension (channel/province/product/sale).
+ *  The Growth page surfaces these. */
+export const generateYtdGrowth = (workspaceId: string) => {
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 16)
+  const monthly = generateMonthlyRevenue(workspaceId)
+  const channels = generateChannelStats(workspaceId)
+  const products = generateProducts(workspaceId)
+  const provinces = generateProvinceTop(workspaceId)
+  /* Overall — vs previous period */
+  const overall = {
+    wow: Math.round((rand() * 12 - 3) * 10) / 10,
+    mom: Math.round((rand() * 18 - 4) * 10) / 10,
+    yoy: Math.round((rand() * 35 + 5) * 10) / 10,
+    weekRevenue:  Math.round((4.5 + rand() * 1.5) * 1_000_000),
+    monthRevenue: monthly[monthly.length - 1].revenue,
+    yearRevenue:  monthly.reduce((s, m) => s + m.revenue, 0),
+  }
+  const byChannel = channels.slice(0, 6).map((c) => ({
+    name:    c.channel,
+    color:   c.color,
+    revenue: c.revenue,
+    wow:     Math.round((rand() * 30 - 10) * 10) / 10,
+    mom:     Math.round((rand() * 35 - 8) * 10) / 10,
+    yoy:     Math.round((rand() * 50 + 5) * 10) / 10,
+  }))
+  const byProvince = provinces.slice(0, 6).map((p) => ({
+    name:    p.province,
+    revenue: p.revenue,
+    wow:     Math.round((rand() * 28 - 8) * 10) / 10,
+    mom:     Math.round((rand() * 32 - 6) * 10) / 10,
+    yoy:     Math.round((rand() * 45 + 8) * 10) / 10,
+  }))
+  const byProduct = products.slice(0, 6).map((p) => ({
+    name:    p.name.length > 28 ? p.name.slice(0, 27) + '…' : p.name,
+    revenue: p.revenue,
+    wow:     Math.round((rand() * 30 - 10) * 10) / 10,
+    mom:     Math.round((rand() * 35 - 8) * 10) / 10,
+    yoy:     Math.round((rand() * 50 + 0) * 10) / 10,
+  }))
+  const SALES = ['Pakamon T.', 'อุ๊', 'อีฟ', 'จูนJune', 'แก้ว', 'Nuu', 'ปุ๋', 'อ้อ']
+  const bySale = SALES.map((s) => ({
+    name:    s,
+    revenue: Math.round((1.5 + rand() * 1.8) * 1_000_000),
+    wow:     Math.round((rand() * 25 - 8) * 10) / 10,
+    mom:     Math.round((rand() * 30 - 6) * 10) / 10,
+    yoy:     Math.round((rand() * 45 + 5) * 10) / 10,
+  }))
+  return { overall, byChannel, byProvince, byProduct, bySale }
+}
+
+/* Per-month returns + lost revenue — fuels the Monthly Return Trend
+ *  bar+line chart on the Returns page. */
+export const generateMonthlyReturns = (workspaceId: string) => {
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 17)
+  const months = ['2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04']
+  return months.map((m, i) => {
+    const returned = Math.floor((80 + rand() * 80) * (i < 2 ? 1.4 : 1))
+    const rate = Math.round((1.2 + rand() * 1.3 + (i < 2 ? 0.5 : 0)) * 100) / 100
+    const lost = Math.round((100 + rand() * 200) * returned)
+    return { month: m.slice(2), returned, rate, lost }
+  })
+}
+
+/* Per-province returns — fuels the Returns "By Province" table. */
+export const generateReturnsByProvince = (workspaceId: string) => {
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 18)
+  return PROVINCES.slice(0, 10).map((p, i) => {
+    const returned = Math.floor((90 - i * 7 + rand() * 20))
+    const rate = Math.round((1.8 + rand() * 3 - i * 0.1) * 10) / 10
+    const lost = Math.round((300 + rand() * 700) * returned)
+    return { province: p, returned, rate: Math.max(0.5, rate), lost }
+  }).sort((a, b) => b.rate - a.rate)
+}
+
+/* Staff return rate by month — fuels the staff heatmap. */
+export const generateStaffReturnRate = (workspaceId: string) => {
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 19)
+  const STAFF = [
+    'จิน', 'Pakamon T./FRAME', 'อุ๊', 'อีฟ', 'จูนJune', 'แก้ว', 'Nuu', 'ปุ๋', 'อ้อ',
+    'B.Sukarat (Mind)', 'กราย', 'ไอริน', 'Benyada Klk', 'ปุ๊ สุภาพร', 'dao',
+    'แอดมินดอม', 'ฝ้ารุ่ง โกสรลักษณ์', 'System',
+  ]
+  const MONTHS = ['26-04', '26-03', '26-02', '26-01', '25-12', '25-11', '25-10', '25-09', '25-08', '25-07', '25-06']
+  return STAFF.map((s) => {
+    const monthlyData: Record<string, { rate: number; returns: number; total: number } | null> = {}
+    let totalReturns = 0
+    let totalOrders = 0
+    for (const m of MONTHS) {
+      if (rand() < 0.15) {
+        monthlyData[m] = null
+        continue
+      }
+      const total = Math.floor(80 + rand() * 1100)
+      const rate = Math.round((0.5 + rand() * 4.5) * 10) / 10
+      const returns = Math.floor((rate / 100) * total)
+      monthlyData[m] = { rate, returns, total }
+      totalReturns += returns
+      totalOrders += total
+    }
+    const overall = totalOrders > 0
+      ? Math.round((totalReturns / totalOrders) * 1000) / 10
+      : 0
+    return { staff: s, overall, totalReturns, totalOrders, monthlyData, months: MONTHS }
+  }).sort((a, b) => b.overall - a.overall)
+}
+
+/* Top returned products — for Returns page "Top Returned Products". */
+export const generateTopReturnedProducts = (workspaceId: string) => {
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 20)
+  const products = generateProducts(workspaceId).slice(0, 15)
+  return products.map((p) => ({
+    id:       p.id,
+    name:     p.name,
+    returned: Math.floor((20 + rand() * 480) * (p.returnRate / 4)),
+    lost:     Math.round(p.asp * (20 + rand() * 480) * (p.returnRate / 4)),
+  })).sort((a, b) => b.returned - a.returned)
+}
+
+/* High-risk customers (frequent returns) — Returns page bottom table. */
+export const generateHighRiskReturnCustomers = (workspaceId: string) => {
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 21)
+  const all = generateCustomers(workspaceId)
+  /* Pick a sample biased toward higher-return-rate, score them. */
+  const NAMES = [
+    'หรู่หน้า ไม่รู้', 'V.โรรา โบบกรี', 'อวยีดา อันทรกำแหง 1', 'V.สุนทร ขอครีลาคก',
+    'P สาคร เคหารบมิ', 'พรลตรี สาว้วงค์', 'G.อ.ส.น.บัลพิทธ์ ทรัพย์อนันต์ศิริ',
+    'ทิชาลักษณ์(K)', 'ภ.ศุภา', 'สมศักดิ์ ลีลาวัฒน์', 'ปานชนก แสงโภคา',
+  ]
+  const BADGES = ['first_buy_cooling', 'almost_lost', 'first_buy_warming', 'lost_customer', 'low_value_first_buy_aging']
+  return NAMES.map((name, i) => {
+    const orders = 3 + Math.floor(rand() * 4)
+    const returned = orders - 1 - Math.floor(rand() * 2)
+    const lost = Math.round(150 + rand() * 1800)
+    const rate = (returned / orders) * 100
+    return {
+      id:       all[i]?.id ?? `risk-${i}`,
+      name,
+      orders,
+      returned,
+      lost,
+      rate:     Math.round(rate * 10) / 10,
+      badge:    BADGES[Math.floor(rand() * BADGES.length)],
+    }
+  }).sort((a, b) => b.rate - a.rate)
+}
+
+/* Monthly first-purchase vs returning revenue — for Frequency page. */
+export const generateFirstVsReturning = (workspaceId: string) => {
+  const monthly = generateMonthlyRevenue(workspaceId)
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 22)
+  return monthly.map((m) => {
+    const firstShare = 0.32 + rand() * 0.12  // ~38% first
+    const first = Math.round(m.revenue * firstShare)
+    const returning = m.revenue - first
+    return {
+      month:     m.month,
+      first,
+      returning,
+    }
+  })
+}
+
+/* Customer-status buckets for the donut on Frequency page. */
+export const generateCustomerStatusBuckets = (workspaceId: string) => {
+  const customers = generateCustomers(workspaceId)
+  const groups = [
+    { key: 'good',    label: 'ดี',     statuses: ['champion', 'loyal'],            color: '#10b981' },
+    { key: 'watch',   label: 'เฝ้าระวัง', statuses: ['potential', 'new'],            color: '#f59e0b' },
+    { key: 'crisis',  label: 'วิกฤต',    statuses: ['at_risk'],                     color: '#f97316' },
+    { key: 'lost',    label: 'หายไป',    statuses: ['lost', 'ghost'],               color: '#ef4444' },
+  ]
+  return groups.map((g) => ({
+    ...g,
+    count: customers.filter((c) => g.statuses.includes(c.status)).length,
+  }))
+}
+
+/* Purchase-pattern donut — coarse buckets for "ซื้อครั้งเดียว / สม่ำเสมอ /
+ *  ซื้อเพิ่มขึ้น / สำรวจ / จ่ายเยอะแต่ไม่บ่อย". */
+export const generatePurchasePattern = (workspaceId: string) => {
+  const customers = generateCustomers(workspaceId)
+  const total = customers.length
+  /* Heuristic buckets — driven by orders + avgBasket */
+  const onceOnly = customers.filter((c) => c.orders === 1).length
+  const steady   = customers.filter((c) => c.orders >= 3 && c.orders <= 5).length
+  const growing  = customers.filter((c) => c.orders >= 6 && c.orders <= 9).length
+  const explorer = customers.filter((c) => c.orders === 2).length
+  const bigSpender = customers.filter((c) => c.orders >= 10 || c.avgBasket > 1500).length
+  return [
+    { key: 'once',    label: 'ซื้อครั้งเดียว',    count: onceOnly,                        color: '#6366f1' },
+    { key: 'steady',  label: 'สม่ำเสมอ',          count: steady,                          color: '#8b5cf6' },
+    { key: 'growing', label: 'ซื้อเพิ่มขึ้น',      count: growing,                         color: '#a855f7' },
+    { key: 'explore', label: 'สำรวจ',             count: explorer,                        color: '#ec4899' },
+    { key: 'big',     label: 'จ่ายเยอะแต่ไม่บ่อย', count: Math.min(bigSpender, total / 20), color: '#f43f5e' },
+  ]
+}
+
+/* Per-frequency table with avg-basket, customer count, orders, total. */
+export const generateFrequencyTable = (workspaceId: string) => {
+  const customers = generateCustomers(workspaceId)
+  const total = customers.length
+  const totalSpend = customers.reduce((s, c) => s + c.totalSpend, 0)
+  const totalOrders = customers.reduce((s, c) => s + c.orders, 0)
+  const buckets = [
+    { key: '1',  min: 1, max: 1 },
+    { key: '2',  min: 2, max: 2 },
+    { key: '3',  min: 3, max: 3 },
+    { key: '4',  min: 4, max: 4 },
+    { key: '5',  min: 5, max: 5 },
+    { key: '6',  min: 6, max: 6 },
+    { key: '7',  min: 7, max: 7 },
+    { key: '8',  min: 8, max: 8 },
+    { key: '9',  min: 9, max: 9 },
+    { key: '10+',min: 10, max: 999 },
+  ]
+  return {
+    rows: buckets.map((b) => {
+      const list = customers.filter((c) => c.orders >= b.min && c.orders <= b.max)
+      const value = list.reduce((s, c) => s + c.totalSpend, 0)
+      const orders = list.reduce((s, c) => s + c.orders, 0)
+      return {
+        bucket:    b.key,
+        count:     list.length,
+        share:     (list.length / total) * 100,
+        orders,
+        value,
+        avgBasket: orders > 0 ? value / orders : 0,
+      }
+    }),
+    totals: { count: total, orders: totalOrders, value: totalSpend, share: 100 },
+  }
+}
+
+/* Retention 3 month / 6 month / repeat rate — for Frequency page right panel. */
+export const generateRetentionStats = (workspaceId: string) => {
+  const customers = generateCustomers(workspaceId)
+  const repeat = customers.filter((c) => c.orders >= 2).length
+  const repeatRate = (repeat / customers.length) * 100
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 23)
+  return {
+    m3: Math.round((18 + rand() * 4) * 100) / 100,
+    m6: Math.round((19 + rand() * 5) * 100) / 100,
+    repeatRate: Math.round(repeatRate * 100) / 100,
+  }
+}
+
 /* 30-day return-rate trend — paired with the new Returns page. */
 export const generateReturnTrend = (workspaceId: string) => {
   const rand = seededRandom(seedFromWorkspace(workspaceId) + 14)
@@ -612,6 +921,34 @@ export const dataset = {
     cached(`freq-${workspaceId}`, () => generateFrequencyAnalysis(workspaceId)),
   returnTrend: (workspaceId: string) =>
     cached(`ret-${workspaceId}`, () => generateReturnTrend(workspaceId)),
+  daily6m: (workspaceId: string) =>
+    cached(`daily6m-${workspaceId}`, () => generateDaily6Month(workspaceId)),
+  channelReturnSplit: (workspaceId: string) =>
+    cached(`chret-${workspaceId}`, () => generateChannelReturnSplit(workspaceId)),
+  topRiskCustomers: (workspaceId: string) =>
+    cached(`risk-${workspaceId}`, () => generateTopRiskCustomers(workspaceId)),
+  ytdGrowth: (workspaceId: string) =>
+    cached(`ytd-${workspaceId}`, () => generateYtdGrowth(workspaceId)),
+  monthlyReturns: (workspaceId: string) =>
+    cached(`mret-${workspaceId}`, () => generateMonthlyReturns(workspaceId)),
+  returnsByProvince: (workspaceId: string) =>
+    cached(`retp-${workspaceId}`, () => generateReturnsByProvince(workspaceId)),
+  staffReturnRate: (workspaceId: string) =>
+    cached(`srat-${workspaceId}`, () => generateStaffReturnRate(workspaceId)),
+  topReturnedProducts: (workspaceId: string) =>
+    cached(`trp-${workspaceId}`, () => generateTopReturnedProducts(workspaceId)),
+  highRiskReturnCustomers: (workspaceId: string) =>
+    cached(`hrrc-${workspaceId}`, () => generateHighRiskReturnCustomers(workspaceId)),
+  firstVsReturning: (workspaceId: string) =>
+    cached(`fvr-${workspaceId}`, () => generateFirstVsReturning(workspaceId)),
+  customerStatusBuckets: (workspaceId: string) =>
+    cached(`csb-${workspaceId}`, () => generateCustomerStatusBuckets(workspaceId)),
+  purchasePattern: (workspaceId: string) =>
+    cached(`pp-${workspaceId}`, () => generatePurchasePattern(workspaceId)),
+  frequencyTable: (workspaceId: string) =>
+    cached(`ftbl-${workspaceId}`, () => generateFrequencyTable(workspaceId)),
+  retentionStats: (workspaceId: string) =>
+    cached(`rstat-${workspaceId}`, () => generateRetentionStats(workspaceId)),
   provinces: (workspaceId: string) =>
     cached(`provinces-${workspaceId}`, () => generateProvinceTop(workspaceId)),
   cohorts: (workspaceId: string) =>
