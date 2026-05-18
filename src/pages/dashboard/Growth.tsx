@@ -1,4 +1,6 @@
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -10,10 +12,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { ArrowUpRight, Clock, RefreshCcw, Users } from 'lucide-react'
+import { ArrowUpRight, CalendarDays, Clock, Users } from 'lucide-react'
+import { useState } from 'react'
 import { workspaces } from '@/lib/workspaces'
 import { dataset } from '@/lib/mock-data'
-import { formatNumber, formatPct, formatTHB } from '@/lib/utils'
+import { cn, formatNumber, formatPct, formatTHB } from '@/lib/utils'
+
+type DailyMetric = 'revenue' | 'customers'
 
 export const Growth = () => {
   const ws = workspaces.current()
@@ -22,6 +27,14 @@ export const Growth = () => {
   const weekly = dataset.weekly(ws.id)
   const channels = dataset.channels(ws.id)
   const hourly = dataset.hourly(ws.id)
+  const daily = dataset.daily(ws.id)
+
+  const [dailyMetric, setDailyMetric] = useState<DailyMetric>('revenue')
+  const dailyTotal = daily.reduce((acc, d) => acc + d[dailyMetric], 0)
+  const dailyAvg = dailyTotal / daily.length
+  const dailyLast = daily[daily.length - 1][dailyMetric]
+  const dailyPrev = daily[daily.length - 2][dailyMetric]
+  const dailyDelta = dailyPrev > 0 ? ((dailyLast - dailyPrev) / dailyPrev) * 100 : 0
 
   const channelMonthly = monthly.map((m) => {
     const row: Record<string, any> = { month: m.month }
@@ -71,6 +84,100 @@ export const Growth = () => {
             value="20"
             sub="สินค้าที่ยังขายอยู่"
           />
+        </div>
+      </section>
+
+      {/* Chapter 1b — Daily trend (30D), switchable metric */}
+      <section className="story-section">
+        <div className="story-header">
+          <CalendarDays className="w-5 h-5 text-sky-600" />
+          <h2 className="story-title">เทรนด์รายวัน 30 วัน — Daily Trend</h2>
+          <span className="story-sub">สลับมุมมองระหว่างยอดขาย / ลูกค้า</span>
+        </div>
+
+        <div className="card p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="grid grid-cols-3 gap-4 flex-1">
+              <DailyStat
+                label="วันล่าสุด"
+                value={
+                  dailyMetric === 'revenue'
+                    ? formatTHB(dailyLast, { compact: true })
+                    : formatNumber(dailyLast)
+                }
+                sub={`${dailyDelta >= 0 ? '+' : ''}${formatPct(dailyDelta, 1)} vs วันก่อน`}
+                positive={dailyDelta >= 0}
+              />
+              <DailyStat
+                label="เฉลี่ย/วัน"
+                value={
+                  dailyMetric === 'revenue'
+                    ? formatTHB(dailyAvg, { compact: true })
+                    : formatNumber(dailyAvg)
+                }
+                sub="30 วันล่าสุด"
+              />
+              <DailyStat
+                label="รวม 30 วัน"
+                value={
+                  dailyMetric === 'revenue'
+                    ? formatTHB(dailyTotal, { compact: true })
+                    : formatNumber(dailyTotal)
+                }
+                sub={dailyMetric === 'revenue' ? 'baht' : 'ลูกค้า'}
+              />
+            </div>
+            <MetricToggle value={dailyMetric} onChange={setDailyMetric} />
+          </div>
+
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={daily} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+              <defs>
+                <linearGradient id="dailyGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="0%"
+                    stopColor={dailyMetric === 'revenue' ? '#ff7a00' : '#0ea5e9'}
+                    stopOpacity={0.35}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor={dailyMetric === 'revenue' ? '#ff7a00' : '#0ea5e9'}
+                    stopOpacity={0}
+                  />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 10, fill: '#64748b' }}
+                interval={2}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: '#64748b' }}
+                tickFormatter={(v) =>
+                  dailyMetric === 'revenue'
+                    ? `${(v / 1000).toFixed(0)}K`
+                    : formatNumber(v)
+                }
+              />
+              <Tooltip
+                contentStyle={{ borderRadius: 12, fontSize: 12 }}
+                formatter={(v: number) =>
+                  dailyMetric === 'revenue'
+                    ? formatTHB(v, { compact: true })
+                    : `${formatNumber(v)} คน`
+                }
+                labelFormatter={(l) => `วันที่ ${l}`}
+              />
+              <Area
+                type="monotone"
+                dataKey={dailyMetric}
+                stroke={dailyMetric === 'revenue' ? '#ff7a00' : '#0ea5e9'}
+                strokeWidth={2.5}
+                fill="url(#dailyGrad)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </section>
 
@@ -186,6 +293,70 @@ export const Growth = () => {
     </div>
   )
 }
+
+const MetricToggle = ({
+  value,
+  onChange,
+}: {
+  value: DailyMetric
+  onChange: (m: DailyMetric) => void
+}) => (
+  <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 text-xs font-semibold">
+    <button
+      onClick={() => onChange('revenue')}
+      className={cn(
+        'px-3 py-1.5 rounded-lg transition-colors',
+        value === 'revenue'
+          ? 'bg-white text-brand-700 shadow-sm'
+          : 'text-slate-500 hover:text-slate-900',
+      )}
+    >
+      ยอดขาย
+    </button>
+    <button
+      onClick={() => onChange('customers')}
+      className={cn(
+        'px-3 py-1.5 rounded-lg transition-colors',
+        value === 'customers'
+          ? 'bg-white text-sky-700 shadow-sm'
+          : 'text-slate-500 hover:text-slate-900',
+      )}
+    >
+      ลูกค้า
+    </button>
+  </div>
+)
+
+const DailyStat = ({
+  label,
+  value,
+  sub,
+  positive,
+}: {
+  label: string
+  value: string
+  sub: string
+  positive?: boolean
+}) => (
+  <div>
+    <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+      {label}
+    </div>
+    <div
+      className={cn(
+        'text-xl font-bold mt-0.5',
+        positive == null
+          ? 'text-slate-900'
+          : positive
+            ? 'text-emerald-700'
+            : 'text-rose-600',
+      )}
+    >
+      {value}
+    </div>
+    <div className="text-[10px] text-slate-500 mt-0.5">{sub}</div>
+  </div>
+)
 
 const StoryStat = ({
   label,

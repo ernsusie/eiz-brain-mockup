@@ -108,6 +108,17 @@ npm run build    # production build → dist/
 npm run preview  # preview production build locally
 ```
 
+### Embedding under a sub-path
+
+For embedding the built dist inside another app (e.g. iframed under `/mockup-static/`), set `VITE_BASE_PATH` at build time:
+
+```bash
+VITE_BASE_PATH=/mockup-static/ npm run build
+# → dist/index.html now references /mockup-static/assets/*
+```
+
+On Windows Git Bash, prefix with `MSYS_NO_PATHCONV=1` to keep the leading slash intact.
+
 ## 📝 หมายเหตุ
 
 - ทุกข้อมูลเป็น **mock** (สร้างจาก deterministic seed ตาม workspace ID)

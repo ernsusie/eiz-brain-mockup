@@ -304,6 +304,30 @@ export const generateWeeklyRevenue = (workspaceId: string) => {
   }))
 }
 
+/* Daily trend — 30 days of revenue + new customer counts. The Growth
+ * page uses this for the rolling 30-day chart with a metric switch
+ * (revenue ↔ customers). Anchored to today() so the latest tick is
+ * always "today" in the demo. */
+export const generateDailyTrend = (workspaceId: string) => {
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 12)
+  const today = new Date()
+  return range(30).map((i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - (29 - i))
+    /* Weekend bump (Sat/Sun = 6/0) for revenue, but customers stay
+     * fairly flat — telesale + ads run mostly on weekdays. */
+    const dow = d.getDay()
+    const weekendBump = dow === 0 || dow === 6 ? 1.2 : 1
+    return {
+      date: d.toISOString().slice(0, 10),
+      label: `${d.getDate()}/${d.getMonth() + 1}`,
+      revenue: Math.round((140 + rand() * 60) * 1000 * weekendBump),
+      customers: Math.floor((90 + rand() * 50) * (dow === 0 || dow === 6 ? 0.85 : 1.05)),
+      orders: Math.floor((180 + rand() * 80) * weekendBump),
+    }
+  })
+}
+
 export const generateHourlyDistribution = (workspaceId: string) => {
   const rand = seededRandom(seedFromWorkspace(workspaceId) + 7)
   return range(24).map((h) => {
@@ -521,6 +545,8 @@ export const dataset = {
     cached(`weekly-${workspaceId}`, () => generateWeeklyRevenue(workspaceId)),
   hourly: (workspaceId: string) =>
     cached(`hourly-${workspaceId}`, () => generateHourlyDistribution(workspaceId)),
+  daily: (workspaceId: string) =>
+    cached(`daily-${workspaceId}`, () => generateDailyTrend(workspaceId)),
   provinces: (workspaceId: string) =>
     cached(`provinces-${workspaceId}`, () => generateProvinceTop(workspaceId)),
   cohorts: (workspaceId: string) =>

@@ -9,6 +9,8 @@ import {
   ChevronRight,
   Sparkles,
   Package,
+  Upload,
+  Settings,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth, can } from '@/lib/auth'
@@ -46,6 +48,19 @@ const NAV = [
     icon: Trophy,
     hint: 'Performance + KPI',
     minRole: 'admin' as const,
+  },
+  {
+    to: '/upload',
+    label: 'นำเข้าข้อมูล',
+    icon: Upload,
+    hint: 'CSV / Excel ยอดขาย',
+    minRole: 'edit' as const,
+  },
+  {
+    to: '/settings',
+    label: 'ตั้งค่า',
+    icon: Settings,
+    hint: 'บัญชี · ทีม · workspace',
   },
 ]
 

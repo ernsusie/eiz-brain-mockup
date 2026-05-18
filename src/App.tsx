@@ -17,6 +17,12 @@ import { CustomerDetail } from './pages/CustomerDetail'
 import { Enrollment } from './pages/Enrollment'
 import { SalesTeam } from './pages/SalesTeam'
 import { Replenishment } from './pages/Replenishment'
+import { Upload } from './pages/Upload'
+import { SettingsLayout } from './pages/settings/SettingsLayout'
+import { Account as SettingsAccount } from './pages/settings/Account'
+import { Team as SettingsTeam } from './pages/settings/Team'
+import { WorkspaceSettings } from './pages/settings/WorkspaceSettings'
+import { Notifications as SettingsNotifications } from './pages/settings/Notifications'
 
 const App = () => (
   <Routes>
@@ -49,6 +55,16 @@ const App = () => (
       <Route path="/enrollment" element={<Enrollment />} />
       <Route path="/replenishment" element={<Replenishment />} />
       <Route path="/sales" element={<SalesTeam />} />
+
+      <Route path="/upload" element={<Upload />} />
+
+      <Route path="/settings" element={<SettingsLayout />}>
+        <Route index element={<Navigate to="/settings/account" replace />} />
+        <Route path="account" element={<SettingsAccount />} />
+        <Route path="team" element={<SettingsTeam />} />
+        <Route path="workspace" element={<WorkspaceSettings />} />
+        <Route path="notifications" element={<SettingsNotifications />} />
+      </Route>
     </Route>
 
     <Route path="*" element={<Navigate to="/brief" replace />} />
