@@ -112,9 +112,12 @@ export const DashboardLayout = () => {
         items={[
           { to: '/dashboard', label: '📊 Sale Performance', end: true },
           { to: '/dashboard/growth', label: '📈 Growth' },
+          { to: '/dashboard/segment-analysis', label: '🎯 วิเคราะห์กลุ่มลูกค้า' },
+          { to: '/dashboard/frequency', label: '🔁 ความถี่ & ซื้อซ้ำ' },
           { to: '/dashboard/geography', label: '🗺️ Geography' },
           { to: '/dashboard/products', label: '📦 Products' },
-          { to: '/dashboard/retention', label: '💞 Retention' },
+          { to: '/dashboard/product-analysis', label: '🔬 Product Analysis' },
+          { to: '/dashboard/returns', label: '↩️ Returns' },
         ]}
       />
 

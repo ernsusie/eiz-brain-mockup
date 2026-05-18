@@ -304,6 +304,67 @@ export const generateWeeklyRevenue = (workspaceId: string) => {
   }))
 }
 
+/* Frequency distribution + repeat-purchase metrics derived from the
+ * customer roster (so totals stay consistent with other pages). */
+export const generateFrequencyAnalysis = (workspaceId: string) => {
+  const customers = generateCustomers(workspaceId)
+  const buckets = [
+    { key: '1',   label: '1 ครั้ง',       count: 0, value: 0 },
+    { key: '2',   label: '2 ครั้ง',       count: 0, value: 0 },
+    { key: '3',   label: '3 ครั้ง',       count: 0, value: 0 },
+    { key: '4-5', label: '4-5 ครั้ง',     count: 0, value: 0 },
+    { key: '6+',  label: '6+ ครั้ง (VIP)', count: 0, value: 0 },
+  ]
+  for (const c of customers) {
+    const o = c.orders
+    const idx = o >= 6 ? 4 : o >= 4 ? 3 : o === 3 ? 2 : o === 2 ? 1 : 0
+    buckets[idx].count += 1
+    buckets[idx].value += c.totalSpend
+  }
+  /* Days-between-purchases distribution (calculated from firstBuy →
+   *  lastBuy ÷ orders-1 for customers with ≥2 orders). */
+  const gaps = [
+    { key: '0-30',   label: '0-30 วัน',   count: 0 },
+    { key: '31-60',  label: '31-60 วัน',  count: 0 },
+    { key: '61-90',  label: '61-90 วัน',  count: 0 },
+    { key: '91-180', label: '91-180 วัน', count: 0 },
+    { key: '180+',   label: '180+ วัน',   count: 0 },
+  ]
+  for (const c of customers) {
+    if (c.orders < 2) continue
+    const first = new Date(c.firstBuy).getTime()
+    const last  = new Date(c.lastBuy).getTime()
+    const avg   = (last - first) / 86400_000 / (c.orders - 1)
+    const idx = avg > 180 ? 4 : avg > 90 ? 3 : avg > 60 ? 2 : avg > 30 ? 1 : 0
+    gaps[idx].count += 1
+  }
+  /* Monthly repeat-rate trend (last 6 months, mock cohort-based). */
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 13)
+  const months = ['2025-12', '2026-01', '2026-02', '2026-03', '2026-04', '2026-05']
+  const repeatTrend = months.map((m, i) => ({
+    month: m.slice(2),
+    repeatPct: Math.round((15 + rand() * 6 + i * 0.6) * 10) / 10,
+    newPct:    Math.round((40 + rand() * 12 - i * 0.4) * 10) / 10,
+  }))
+  return { buckets, gaps, repeatTrend }
+}
+
+/* 30-day return-rate trend — paired with the new Returns page. */
+export const generateReturnTrend = (workspaceId: string) => {
+  const rand = seededRandom(seedFromWorkspace(workspaceId) + 14)
+  const today = new Date()
+  return range(30).map((i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - (29 - i))
+    return {
+      date: d.toISOString().slice(0, 10),
+      label: `${d.getDate()}/${d.getMonth() + 1}`,
+      returnRate: Math.round((1.4 + rand() * 1.6) * 100) / 100,
+      cancelRate: Math.round((0.6 + rand() * 0.8) * 100) / 100,
+    }
+  })
+}
+
 /* Daily trend — 30 days of revenue + new customer counts. The Growth
  * page uses this for the rolling 30-day chart with a metric switch
  * (revenue ↔ customers). Anchored to today() so the latest tick is
@@ -547,6 +608,10 @@ export const dataset = {
     cached(`hourly-${workspaceId}`, () => generateHourlyDistribution(workspaceId)),
   daily: (workspaceId: string) =>
     cached(`daily-${workspaceId}`, () => generateDailyTrend(workspaceId)),
+  frequency: (workspaceId: string) =>
+    cached(`freq-${workspaceId}`, () => generateFrequencyAnalysis(workspaceId)),
+  returnTrend: (workspaceId: string) =>
+    cached(`ret-${workspaceId}`, () => generateReturnTrend(workspaceId)),
   provinces: (workspaceId: string) =>
     cached(`provinces-${workspaceId}`, () => generateProvinceTop(workspaceId)),
   cohorts: (workspaceId: string) =>

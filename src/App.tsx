@@ -8,7 +8,10 @@ import { SalePerformance } from './pages/dashboard/SalePerformance'
 import { Growth } from './pages/dashboard/Growth'
 import { Geography } from './pages/dashboard/Geography'
 import { Products } from './pages/dashboard/Products'
-import { Retention } from './pages/dashboard/Retention'
+import { ProductAnalysis } from './pages/dashboard/ProductAnalysis'
+import { SegmentAnalysis } from './pages/dashboard/SegmentAnalysis'
+import { Frequency } from './pages/dashboard/Frequency'
+import { Returns } from './pages/dashboard/Returns'
 import { SegmentsLayout } from './pages/segments/SegmentsLayout'
 import { SegmentList } from './pages/segments/SegmentList'
 import { RfmAnalysis } from './pages/segments/RfmAnalysis'
@@ -37,9 +40,14 @@ const App = () => (
       <Route path="/dashboard" element={<DashboardLayout />}>
         <Route index element={<SalePerformance />} />
         <Route path="growth" element={<Growth />} />
+        <Route path="segment-analysis" element={<SegmentAnalysis />} />
+        <Route path="frequency" element={<Frequency />} />
         <Route path="geography" element={<Geography />} />
         <Route path="products" element={<Products />} />
-        <Route path="retention" element={<Retention />} />
+        <Route path="product-analysis" element={<ProductAnalysis />} />
+        <Route path="returns" element={<Returns />} />
+        {/* Legacy /retention path → redirect to the merged Returns page */}
+        <Route path="retention" element={<Navigate to="/dashboard/returns" replace />} />
       </Route>
 
       <Route path="/segments" element={<SegmentsLayout />}>
