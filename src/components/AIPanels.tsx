@@ -35,9 +35,11 @@ export const AIPanels = () => {
   const ws = workspaces.current()
   const { filter } = usePageState()
 
-  // Hide on /brief (it IS the summary), login, workspaces
+  /* Hidden on login + workspace picker only. The Brief page now keeps
+   *  the floating chat too — users asked for it because the embedded
+   *  AI Summary card on Brief is a one-shot read but a chat is the
+   *  natural follow-up for "ทำไม?" / "เจาะลึก…" questions. */
   const hide =
-    loc.pathname.startsWith('/brief') ||
     loc.pathname.startsWith('/login') ||
     loc.pathname.startsWith('/workspaces')
 
@@ -84,6 +86,14 @@ export const AIPanels = () => {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
     }
   }, [chatMessages, thinking])
+
+  /* Brief page emits this custom event from its "Chat with AI"
+   *  callout CTA — open the chat panel and focus it. */
+  useEffect(() => {
+    const handler = () => setChatOpen(true)
+    window.addEventListener('eiz-open-chat', handler)
+    return () => window.removeEventListener('eiz-open-chat', handler)
+  }, [])
 
   const sendChat = () => {
     const text = chatInput.trim()

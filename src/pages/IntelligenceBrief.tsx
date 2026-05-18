@@ -9,6 +9,11 @@ import {
   Upload,
   ArrowRight,
   TrendingDown,
+  TrendingUp,
+  Users,
+  Crown,
+  MessageCircle,
+  FileText,
 } from 'lucide-react'
 import { workspaces } from '@/lib/workspaces'
 import { dataset, salesStore } from '@/lib/mock-data'
@@ -128,6 +133,57 @@ export const IntelligenceBrief = () => {
         <span className="text-amber-900">ข้อมูลล่าสุดถึงวันที่: 30 เม.ย. 2569</span>
       </div>
 
+      {/* Executive Summary — top-of-page KPI banner */}
+      <section className="card p-6 bg-gradient-to-br from-slate-900 to-slate-800 text-white overflow-hidden relative">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-9 h-9 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center">
+            <FileText className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wider text-white/60 font-semibold">Executive Summary</div>
+            <div className="font-bold text-lg">{ws.nameTh} · พฤษภาคม 2026</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <ExecKpi
+            icon={Users}
+            label="Total Customers"
+            value={formatNumber(data.metrics.totalCustomers, { compact: true })}
+            sub="ฐานลูกค้าทั้งหมด"
+          />
+          <ExecKpi
+            icon={AlertTriangle}
+            label="At-risk"
+            value={formatNumber(data.metrics.atRiskCount, { compact: true })}
+            sub={`VIP เสี่ยงหลุด ${formatNumber(data.metrics.vipAtRiskCount)} ราย`}
+            danger
+          />
+          <ExecKpi
+            icon={Crown}
+            label="Mid bucket"
+            value={formatNumber(data.metrics.midBucketCount, { compact: true })}
+            sub={data.metrics.teamShortage > 0 ? `ต้องเพิ่ม sale อีก ${data.metrics.teamShortage} คน` : 'sale team พอ'}
+          />
+          <ExecKpi
+            icon={TrendingUp}
+            label="Single-buy"
+            value={`${data.metrics.singleBuyPct}%`}
+            sub={`${formatNumber(data.metrics.singleBuyCount)} ราย ซื้อครั้งเดียว`}
+          />
+        </div>
+
+        <p className="text-sm text-white/80 mt-4 border-t border-white/10 pt-3 leading-relaxed">
+          📌 <strong>สิ่งที่ควรทำต่อ:</strong> {topCard.title} —{' '}
+          <button
+            onClick={() => topCard.filterQuery && navigate(`/customer-center/customers?${topCard.filterQuery}`)}
+            className="text-white underline hover:text-white/90 inline-flex items-center gap-1"
+          >
+            ดูรายละเอียด <ArrowRight className="w-3 h-3" />
+          </button>
+        </p>
+      </section>
+
       {/* AI Summary card */}
       <div className="card p-6 bg-gradient-to-br from-violet-50/60 via-white to-brand-50/30 border-violet-100">
         <div className="flex items-center gap-2 mb-4">
@@ -199,9 +255,65 @@ export const IntelligenceBrief = () => {
           </div>
         </div>
       </div>
+
+      {/* Chat with AI callout — sits at the bottom so it's a clear
+       *  follow-up CTA after reading the summary. The floating panel
+       *  on the right also stays available, but a callout signals
+       *  "ask Casper anything" more clearly. */}
+      <div className="card p-5 bg-gradient-to-r from-violet-50 to-pink-50 border border-violet-200">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white shrink-0">
+            <MessageCircle className="w-6 h-6" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-slate-900">Chat with AI</h3>
+            <p className="text-sm text-slate-600">
+              อยากรู้รายละเอียดเพิ่ม? เช่น &quot;ลูกค้า VIP กลุ่มไหนเสี่ยงมากสุด&quot;
+              หรือ &quot;ปรับโปรโมชั่นยังไงให้ลูกค้ากลับมา&quot; — ถามได้เลย
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              /* Trigger the floating chat panel via the bottom-right
+               * mascot button. The AIPanels component listens for
+               * this custom event. */
+              window.dispatchEvent(new CustomEvent('eiz-open-chat'))
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 shrink-0"
+          >
+            <MessageCircle className="w-4 h-4" />
+            เริ่มแชทกับ Casper
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
+
+const ExecKpi = ({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  danger,
+}: {
+  icon:    any
+  label:   string
+  value:   string
+  sub:     string
+  danger?: boolean
+}) => (
+  <div className="rounded-2xl bg-white/10 backdrop-blur p-3 border border-white/10">
+    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/60 font-semibold">
+      <Icon className="w-3 h-3" />
+      {label}
+    </div>
+    <div className={cn('text-2xl font-bold mt-1', danger ? 'text-rose-300' : 'text-white')}>
+      {value}
+    </div>
+    <div className="text-[10px] text-white/70 mt-0.5">{sub}</div>
+  </div>
+)
 
 // =====================================================
 //  Components
