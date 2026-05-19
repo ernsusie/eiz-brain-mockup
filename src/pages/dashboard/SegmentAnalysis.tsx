@@ -7,7 +7,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts'
-import { LayoutGrid, Table as TableIcon, MoveRight, Sparkles } from 'lucide-react'
+import { ArrowRight, LayoutGrid, Phone, Table as TableIcon, MoveRight, Sparkles, Users } from 'lucide-react'
 import { workspaces } from '@/lib/workspaces'
 import { dataset } from '@/lib/mock-data'
 import type { Customer } from '@/types'
@@ -164,6 +164,26 @@ export const SegmentAnalysis = () => {
         ]}
       />
 
+      {/* Shortcut to Customer Center · drill-in for action */}
+      <div className="card bg-gradient-to-r from-violet-50 to-fuchsia-50 border border-violet-200 p-4 flex items-center gap-3 flex-wrap">
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center shrink-0">
+          <Users className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-slate-900">ทางลัด → Customer Center</div>
+          <p className="text-xs text-slate-600">
+            กดการ์ด/แถวด้านล่างเพื่อเปิด detail ของแต่ละ segment ใน Customer Center · หรือเปิดหน้า Segment Customer
+            (priority-sorted, AI recommended actions, call list) ที่นี่
+          </p>
+        </div>
+        <button
+          onClick={() => navigate('/customer-center/segments')}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 shrink-0"
+        >
+          <Phone className="w-4 h-4" /> เปิด Segment Customer <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
       <section className="card p-5">
         <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
           <div>
@@ -211,13 +231,13 @@ export const SegmentAnalysis = () => {
                 <button
                   key={seg.key}
                   onClick={() => handleClick(seg.key, seg.label)}
-                  className="rounded-2xl border border-white text-left p-2.5 hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden flex flex-col justify-between"
+                  className="group rounded-2xl border border-white text-left p-2.5 hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden flex flex-col justify-between relative"
                   style={{
                     gridColumn: `${seg.col} / span 1`,
                     gridRow: `${seg.row} / span ${seg.rowSpan ?? 1}`,
                     background: BAND_COLORS[seg.band],
                   }}
-                  title={`${seg.label} · ${formatNumber(count)} ราย · ${formatTHB(value, { compact: true })}`}
+                  title={`คลิกเพื่อเปิด ${seg.label} ใน Customer Center · ${formatNumber(count)} ราย · ${formatTHB(value, { compact: true })}`}
                 >
                   <div className="text-[10px] font-medium text-slate-900/80 leading-tight line-clamp-2">
                     {seg.label}
@@ -228,6 +248,7 @@ export const SegmentAnalysis = () => {
                     </div>
                     <div className="text-[9px] text-slate-700/70 mt-0.5">{pct.toFixed(1)}%</div>
                   </div>
+                  <ArrowRight className="w-3.5 h-3.5 absolute top-1.5 right-1.5 text-slate-900/0 group-hover:text-slate-900/80 transition-colors" />
                 </button>
               )
             })}
